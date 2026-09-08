@@ -1,6 +1,6 @@
 terraform {
   backend "s3" {
-    bucket  = "terraform-state-bucket"
+    bucket  = "innovatech-terraform-statebucket"
     key = "terraform.tfstate"
     region  = "eu-central-1"                      
     encrypt = true
