@@ -1,0 +1,17 @@
+name: Test self-hosted runner
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: self-hosted
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Test runner
+        run: |
+          echo "Runner werkt"
+          hostname
