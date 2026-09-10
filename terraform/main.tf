@@ -224,3 +224,8 @@ resource "aws_route_table_association" "db_route_table_association" {
   subnet_id      = aws_subnet.db_subnet.id
   route_table_id = aws_route_table.spoke_route_table.id
 }
+
+resource "aws_route_table_association" "monitoring_route_table_association" {
+  subnet_id      = aws_subnet.Monitoring_subnet.id
+  route_table_id = aws_route_table.hub_route_table.id
+}
