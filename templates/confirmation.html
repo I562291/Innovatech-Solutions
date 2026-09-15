@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ticket Confirmed</title>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+        }
+
+        body {
+            background: #0b1120;
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        header {
+            background: #0f172a;
+            padding: 22px 8%;
+            border-bottom: 1px solid #1e293b;
+            position: relative;
+            z-index: 10;
+        }
+
+        .container {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 40px;
+            position: relative;
+            z-index: 10;
+        }
+
+        .card {
+            background: #111827;
+            border: 1px solid #1e293b;
+            border-radius: 12px;
+            padding: 40px;
+            text-align: center;
+            max-width: 500px;
+            width: 100%;
+        }
+
+        .card h1 {
+            margin-bottom: 15px;
+        }
+
+        .card p {
+            color: #94a3b8;
+            margin-bottom: 25px;
+        }
+
+        .button {
+            display: inline-block;
+            background: #2563eb;
+            color: white;
+            padding: 14px 28px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        .button:hover {
+            background: #1d4ed8;
+        }
+
+        canvas {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+            z-index: 1 !important;
+            pointer-events: none !important;
+            opacity: 0.25;
+        }
+    </style>
+</head>
+
+<body>
+
+<header>
+    <h2>Innovatech Solutions</h2>
+</header>
+
+<div class="container">
+    <div class="card">
+        <h1>Ticket Confirmed</h1>
+        <p>Your ticket has been successfully purchased.</p>
+
+        <a class="button" href="/">Back to Home</a>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+
+<script>
+    function fireConfetti() {
+        const duration = 3000;
+        const animationEnd = Date.now() + duration;
+
+        const defaults = {
+            startVelocity: 25,
+            spread: 360,
+            ticks: 60,
+            gravity: 0.5,
+            colors: ['#bb0000', '#ffffff']
+        };
+
+        function animate() {
+            if (Date.now() >= animationEnd) {
+                return;
+            }
+
+            confetti({
+                ...defaults,
+                particleCount: 15,
+                origin: {
+                    x: Math.random(),
+                    y: Math.random() * 0.3
+                }
+            });
+
+            requestAnimationFrame(animate);
+        }
+
+        animate();
+    }
+
+    fireConfetti();
+</script>
+
+</body>
+</html>
