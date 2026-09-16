@@ -1,9 +1,22 @@
-import os
 import mysql.connector
 
-db = mysql.connector.connect(
-    host=os.getenv("DB_HOST"),
-    user=os.getenv("DB_USER"),
-    password=os.getenv("DB_PASSWORD"),
-    database=os.getenv("DB_NAME")
-)
+def get_connection():
+    return mysql.connector.connect(
+        host="DATABASE_HOST",
+        user="DATABASE_USER",
+        password="DATABASE_PASSWORD",
+        database="innovatech"
+    )
+
+def create_ticket(buyer_name):
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    cursor.execute(
+        "INSERT INTO tickets (buyer_name) VALUES (%s)",
+        (buyer_name,)
+    )
+
+    connection.commit()
+    cursor.close()
+    connection.close()
