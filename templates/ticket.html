@@ -45,6 +45,8 @@
             border-radius: 12px;
             padding: 40px;
             text-align: center;
+            width: 100%;
+            max-width: 400px; /* Zorgt dat het formulier mooi compact blijft */
         }
 
         .ticket h1 {
@@ -56,14 +58,41 @@
             margin-bottom: 25px;
         }
 
+        /* Nieuwe stijl voor het invoerveld */
+        .input-field {
+            width: 100%;
+            background: #1e293b;
+            border: 1px solid #334155;
+            color: white;
+            padding: 14px;
+            border-radius: 8px;
+            font-size: 16px;
+            margin-bottom: 20px;
+            outline: none;
+            text-align: center;
+        }
+
+        .input-field:focus {
+            border-color: #2563eb; /* Blauwe gloed bij selecteren */
+        }
+
+        .input-field::placeholder {
+            color: #64748b; /* Subtiele kleur voor de placeholder */
+        }
+
+        /* Aangepaste knopstijl voor een formulier-button */
         .button {
-            display: inline-block;
+            width: 100%;
             background: #2563eb;
             color: white;
             padding: 14px 28px;
             border-radius: 8px;
-            text-decoration: none;
+            border: none;
             font-weight: bold;
+            font-size: 16px;
+            cursor: pointer;
+            display: inline-block;
+            text-decoration: none;
         }
 
         .button:hover {
@@ -84,7 +113,18 @@
         <h1>Tech Conference 2026</h1>
         <p>October 12, 2026 - €49.99</p>
 
-        <a class="button" href="/confirmation">Buy Ticket</a>
+        <!-- Formulier dat naar de confirmation pagina linkt -->
+        <form action="/confirmation" method="POST">
+            <input 
+                type="text" 
+                name="name" 
+                class="input-field" 
+                placeholder="Vul je naam in..." 
+                required 
+                autocomplete="off"
+            >
+            <button type="submit" class="button">Buy Ticket</button>
+        </form>
     </div>
 </div>
 

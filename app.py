@@ -1,5 +1,5 @@
-from flask import Flask, render_template
-import db_connection
+from flask import Flask, render_template, request
+from db_connection import create_ticket
 
 app = Flask(__name__)
 
@@ -11,9 +11,11 @@ def home():
 def ticket():
     return render_template("ticket.html")
 
-@app.route("/confirmation")
+@app.route("/confirmation", methods=["POST"])
 def confirmation():
-    return render_template("confirmation.html")
+    buyer_name = request.form.get("name")
+    create_ticket(buyer_name)
+    return render_template("confirmation.html", name=buyer_name)
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
