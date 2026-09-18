@@ -539,3 +539,16 @@ resource "aws_ecs_service" "webserver_service" {
 
   depends_on = [aws_lb_listener.alb_listener]
 }
+
+resource "aws_autoscaling_policy" "scaling_policy" {
+  name                   = "scaling_policy" 
+  autoscaling_group_name = aws_autoscaling_group.webserver_asg.name
+  policy_type            = "TargetTrackingScaling"
+
+  target_tracking_configuration {
+    predefined_metric_specification {
+      predefined_metric_type = "ASGAverageCPUUtilization"
+    }
+    target_value = 50.0
+  }
+}
