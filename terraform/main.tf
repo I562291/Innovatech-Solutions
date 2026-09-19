@@ -475,12 +475,7 @@ resource "aws_autoscaling_group" "webserver_asg" {
     value               = ""
     propagate_at_launch = true
   }
-  tags = {
-    Project = "innovatech_solutions"
-    Name    = "webserver_asg"
-  }
 }
-
 # Het ECS Cluster (De manager van je containers) waar je ec2 instances in zitten.
 resource "aws_ecs_cluster" "innovatech_ecs_cluster" {
   name = "innovatech-cluster"
