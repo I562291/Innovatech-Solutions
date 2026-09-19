@@ -429,16 +429,16 @@ resource "aws_lb_listener" "alb_listener" {
 # --------------------------------------------------------------------------------------------------------
 
 # webserver ----------------------------------------------------------------------------------------------
-# 1. Haal automatisch de nieuwste ECS-Optimized AMI op voor T2 (Amazon Linux 2)
+# 1. 
 data "aws_ssm_parameter" "ec2_ami" {
-  name = "/aws/service/ecs/optimized-ami/amazon-linux-2/recommended/image_id" # ECS optimized AMI voor amazon linux 2
+  name = "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64"
 }
 
 # 2. De blauwdruk voor je EC2 webservers
-resource "aws_launch_template" "ecs_webserver_template" {
-  name_prefix   = "ecs-webserver-"
+resource "aws_launch_template" "template_ec2" {
+  name_prefix   = "template_ec2-"
   image_id      = data.aws_ssm_parameter.ec2_ami.value
-  instance_type = "t2.micro" # t2.micro free tier. you can always expand ec2 during expansion.
+  instance_type = "t2.micro" # t2.micro free tier. We can always expand ec2 during expansion.
 
   network_interfaces {
     associate_public_ip_address = false 
@@ -448,7 +448,10 @@ resource "aws_launch_template" "ecs_webserver_template" {
   # Dit linkt de EC2-computer aan je ECS-cluster.
   user_data = base64encode(<<-EOF
               #!/bin/bash
-              echo ECS_CLUSTER=innovatech-cluster >> /etc/ecs/ecs.config
+              dnf update -y
+              dnf install -y docker
+              systemctl enable docker
+              systemctl start docker
               EOF
   )
 }
@@ -466,14 +469,12 @@ resource "aws_autoscaling_group" "webserver_asg" {
   health_check_grace_period = 300
 
   launch_template {
-    id      = aws_launch_template.ecs_webserver_template.id
+    id      = aws_launch_template.template_ec2.id
     version = "$Latest"
   }
-
-  tag {
-    key                 = "AmazonECSManaged"
-    value               = ""
-    propagate_at_launch = true
+  tags = {
+    Name = "webserver-asg"
+    Project = "innovatech_solutions"
   }
 }
 # Het ECS Cluster (De manager van je containers) waar je ec2 instances in zitten.
