@@ -397,13 +397,15 @@ resource "aws_lb" "ALB" {
 
 resource "aws_lb_target_group" "alb_webserver_tg" { # de ecs zal hier later aan toegevoegd worden om de webserver destinatie mee te geven
   name        = "webserver-tg"
-  target_type = "ip" # ecs verzameld alle ip's en stuurt die door naar de alb
+  target_type = "instance"
   port        = 80
   protocol    = "HTTP"
   vpc_id      = aws_vpc.vpc_innovatech_solutions.id
+
   
   tags = {
     Project = "innovatech_solutions"
+    Name    = "webserver_tg"
   }
 }
 
