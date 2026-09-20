@@ -583,11 +583,9 @@ resource "aws_instance" "vpn_server" {
     ami           = data.aws_ssm_parameter.ec2_ami.value
     instance_type = "t2.micro"
     subnet_id     = aws_subnet.VPN_subnet.id
-    
-    network_interfaces {
-    associate_public_ip_address = true 
-    security_groups             = [aws_security_group.vpn_sg.id]
-  }
+    associate_public_ip_address = true
+    vpc_security_group_ids      = [aws_security_group.vpn_sg.id]
+
     user_data = <<-EOF
                 #!/bin/bash
                 dnf update -y
@@ -612,12 +610,16 @@ resource "aws_db_instance" "mysql" {
   password          = "password"
   db_name          = "innovatech"
   skip_final_snapshot = true
-  db_subnet_group_name = [
-    aws_db_subnet_group.mysql_subnet_group.Database_subnet1, aws_db_subnet_group.mysql_subnet_group.Database_subnet2
-  ]
   vpc_security_group_ids = [aws_security_group.database_sg.id]
+  db_subnet_group_name = aws_db_subnet_group.mysql_subnet_group.name
+  
   tags = {
     Name    = "mysql"
     Project = "innovatech_solutions"
   }
+}
+
+resource "aws_db_subnet_group" "mysql_subnet_group" {
+  name       = "mysql-subnet-group"
+  subnet_ids = [aws_subnet.Database_subnet1.id, aws_subnet.Database_subnet2.id]
 }
