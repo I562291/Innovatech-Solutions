@@ -280,7 +280,7 @@ resource "aws_security_group" "webserver_SG" {
   }
 }
 
-resource "aws_security_group" "database_SG" {
+resource "aws_security_group" "database_sg" {
   vpc_id = aws_vpc.vpc_innovatech_solutions.id
 
   ingress { # Webserver -> Database
@@ -306,11 +306,11 @@ resource "aws_security_group" "database_SG" {
 
   tags = {
     Project = "innovatech_solutions"
-    Name    = "database_SG"
+    Name    = "database_sg"
   }
 }
 
-resource "aws_security_group" "vpn_SG" {
+resource "aws_security_group" "vpn_sg" {
   vpc_id = aws_vpc.vpc_innovatech_solutions.id
 
   ingress { # OpenVPN
@@ -343,11 +343,11 @@ resource "aws_security_group" "vpn_SG" {
 
   tags = {
     Project = "innovatech_solutions"
-    Name    = "vpn_SG"
+    Name    = "vpn_sg"
   }
 }
 
-resource "aws_security_group" "monitoring_SG" {
+resource "aws_security_group" "monitoring_sg" {
   vpc_id = aws_vpc.vpc_innovatech_solutions.id
 
   ingress { # VPN -> Grafana
@@ -372,7 +372,7 @@ resource "aws_security_group" "monitoring_SG" {
   }
   tags = {
     Project = "innovatech_solutions"
-    Name    = "monitoring_SG"
+    Name    = "monitoring_sg"
   }
 }
 
@@ -395,7 +395,7 @@ resource "aws_lb" "ALB" {
   }
 }
 
-resource "aws_lb_target_group" "alb_webserver_tg" { # de ecs zal hier later aan toegevoegd worden om de webserver destinatie mee te geven
+resource "aws_lb_target_group" "alb_webserver_tg" {
   name        = "webserver-tg"
   target_type = "instance"
   port        = 80
@@ -442,16 +442,22 @@ resource "aws_launch_template" "template_ec2" {
 
   network_interfaces {
     associate_public_ip_address = false 
-    security_groups             = [aws_security_group.webserver_SG.id] 
+    security_groups             = [aws_security_group.webserver_SG.id]
+  }
+  iam_instance_profile {
+    arn = aws_iam_instance_profile.ec2_instance_profile.arn
   }
 
-  # Dit linkt de EC2-computer aan je ECS-cluster.
+  # Deze script installeert Docker na deployment
   user_data = base64encode(<<-EOF
               #!/bin/bash
               dnf update -y
               dnf install -y docker
               systemctl enable docker
               systemctl start docker
+              aws ecr get-login-password --region eu-central-1 | docker login --username AWS --password-stdin ${split("/", aws_ecr_repository.container_registry.repository_url)[0]}
+              docker pull ${aws_ecr_repository.container_registry.repository_url}:latest
+              docker run -d -p 80:80 --name mijn-web-app --restart always ${aws_ecr_repository.container_registry.repository_url}:latest
               EOF
   )
 }
@@ -464,78 +470,21 @@ resource "aws_autoscaling_group" "webserver_asg" {
   max_size            = 3
   min_size            = 2
 
+  target_group_arns   = [aws_lb_target_group.alb_webserver_tg.arn]
+
   # Dit zorgt ervoor dat de Autoscaler ingrijpt als de ALB health check faalt
   health_check_type         = "ELB"
-  health_check_grace_period = 300
+  health_check_grace_period = 300 # every 5 minutes
 
-  launch_template {
+  launch_template { # hier vertellen we de autoscaler welke launch template hij moet gebruiken
     id      = aws_launch_template.template_ec2.id
     version = "$Latest"
-  }
-  tags = {
-    Name = "webserver-asg"
-    Project = "innovatech_solutions"
-  }
-}
-# Het ECS Cluster (De manager van je containers) waar je ec2 instances in zitten.
-resource "aws_ecs_cluster" "innovatech_ecs_cluster" {
-  name = "innovatech-cluster"
-  
-  tags = {
-    Project = "innovatech_solutions"
-    Name    = "innovatech_ecs_cluster"
   }
 }
 
 # Een container registry waar ik mijn image in opsla.
 resource "aws_ecr_repository" "container_registry" {
   name                 = "container_registry"
-}
-
-# De Task Definition, instructies voor de ecs cluster voor een container (welke image?)
-resource "aws_ecs_task_definition" "webserver_task" {
-  family                   = "webserver-task"
-  network_mode             = "awsvpc" # awsvpc is nodig voor de alb target group omdat het de ip's van de containers doorstuurt naar de alb
-  requires_compatibilities = ["EC2"] # ec2 over fargate. fargate = serverless, maar duurder en minder control
-  cpu                      = "256"
-  memory                   = "512"
-
-  container_definitions = jsonencode([
-    {
-      name      = "webserver"
-      # hier koppelen we de URL dynamisch aan de image die we in de ECR hebben gepusht
-      image     = "${aws_ecr_repository.container_registry.repository_url}:latest"
-      essential = true
-      portMappings = [
-        {
-          containerPort = 80
-          hostPort      = 80
-        }
-      ]
-    }
-  ])
-}
-
-# De ECS Service (Zorgt dat er altijd 2 containers draaien en koppelt aan de ALB)
-resource "aws_ecs_service" "webserver_service" {
-  name            = "webserver-service"
-  cluster         = aws_ecs_cluster.innovatech_ecs_cluster.id
-  task_definition = aws_ecs_task_definition.webserver_task.arn
-  desired_count   = 2
-  launch_type     = "EC2"
-
-  network_configuration {
-    subnets         = [aws_subnet.Webserver_subnet1.id, aws_subnet.Webserver_subnet2.id]
-    security_groups = [aws_security_group.webserver_SG.id]
-  }
-
-  load_balancer {
-    target_group_arn = aws_lb_target_group.alb_webserver_tg.arn # koppelt de alb target group aan de ecs service zodat de alb weet waar hij de requests heen moet sturen
-    container_name   = "webserver"
-    container_port   = 80
-  }
-
-  depends_on = [aws_lb_listener.alb_listener]
 }
 
 resource "aws_autoscaling_policy" "scaling_policy" {
@@ -547,6 +496,128 @@ resource "aws_autoscaling_policy" "scaling_policy" {
     predefined_metric_specification {
       predefined_metric_type = "ASGAverageCPUUtilization"
     }
-    target_value = 50.0
+    target_value = 80.0
+  }
+}
+
+// Source - https://stackoverflow.com/a/57780806
+// Posted by Dipendra Dangal
+// Retrieved 20-09-2026
+
+resource "aws_iam_role" "iam_role" {
+  name = "test-role"
+
+  assume_role_policy = <<EOF
+    {
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Action": "sts:AssumeRole",
+          "Principal": {
+            "Service": "ec2.amazonaws.com"
+          },
+          "Effect": "Allow",
+          "Sid": ""
+        }
+      ]
+    }
+EOF
+}
+
+resource "aws_iam_policy" "iam_policy" {
+  name        = "test-policy"
+  description = "this is a iam_policy"
+
+  policy = <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Action": [
+        "ecr:*"
+      ],
+      "Effect": "Allow",
+      "Resource": "*"
+    }
+  ]
+}
+EOF
+}
+
+resource "aws_iam_role_policy_attachment" "iam_role_policy_attachment" {
+  role       = "${aws_iam_role.iam_role.name}"
+  policy_arn = "${aws_iam_policy.iam_policy.arn}"
+}
+
+resource "aws_iam_instance_profile" "ec2_instance_profile" {
+  name = "my-ec2-instance-profile"
+  role = aws_iam_role.iam_role.name
+}
+
+# Monitoring ----------------------------------------------------------------------------------------------
+resource "aws_instance" "monitoring_server" {
+    ami           = data.aws_ssm_parameter.ec2_ami.value
+    instance_type = "t2.micro"
+    subnet_id     = aws_subnet.Monitoring_subnet.id
+    security_groups = [aws_security_group.monitoring_sg.id]
+    user_data = <<-EOF
+                #!/bin/bash
+                dnf update -y
+                dnf install -y prometheus
+                dnf install -y grafana
+                systemctl enable prometheus
+                systemctl start prometheus
+                systemctl enable grafana
+                systemctl start grafana
+                EOF
+    
+
+    tags = {
+        Name    = "Monitoring Server"
+        Project = "innovatech_solutions"
+    }
+}
+
+# vpn server ----------------------------------------------------------------------------------------------
+resource "aws_instance" "vpn_server" {
+    ami           = data.aws_ssm_parameter.ec2_ami.value
+    instance_type = "t2.micro"
+    subnet_id     = aws_subnet.VPN_subnet.id
+    
+    network_interfaces {
+    associate_public_ip_address = true 
+    security_groups             = [aws_security_group.vpn_sg.id]
+  }
+    user_data = <<-EOF
+                #!/bin/bash
+                dnf update -y
+                dnf install -y openvpn
+                systemctl enable openvpn
+                systemctl start openvpn
+                EOF
+    tags = {
+        Name    = "VPN Server"
+        Project = "innovatech_solutions"
+    }
+}
+
+# mysql database ----------------------------------------------------------------------------------------------
+resource "aws_db_instance" "mysql" {
+  identifier         = "mysql-instance"
+  engine            = "mysql"
+  engine_version    = "8.0"
+  instance_class    = "db.t2.micro"
+  allocated_storage  = 20
+  username          = "admin"
+  password          = "password"
+  db_name          = "innovatech"
+  skip_final_snapshot = true
+  db_subnet_group_name = [
+    aws_db_subnet_group.mysql_subnet_group.Database_subnet1, aws_db_subnet_group.mysql_subnet_group.Database_subnet2
+  ]
+  vpc_security_group_ids = [aws_security_group.database_sg.id]
+  tags = {
+    Name    = "mysql"
+    Project = "innovatech_solutions"
   }
 }
