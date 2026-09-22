@@ -3,6 +3,13 @@ name: docker pull
 on:
   push:
     branches: [main]
+    paths:
+      - "app.py"
+      - "db_connection.py"
+      - "requirements.txt"
+      - "dockerfile"
+      - "templates/**"
+      - "nginx/**"
 
 jobs:
   terraform:
