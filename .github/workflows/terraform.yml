@@ -25,4 +25,5 @@ jobs:
         run: terraform plan
 
       - name: Terraform apply
-        run: terraform apply -target=aws_ecr_repository.container_registry -auto-approve
+        # run: terraform apply -target=aws_ecr_repository.container_registry -auto-approve
+        run: terraform apply -auto-approve

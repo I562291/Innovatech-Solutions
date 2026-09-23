@@ -1,4 +1,4 @@
-# name: Docker deploy
+name: Docker deploy
 
 # on:
 #   push:
@@ -10,63 +10,64 @@
 #       - "dockerfile"
 #       - "templates/**"
 #       - "nginx/**"
+  on:
+    workflow_dispatch:
 
 
-# jobs:
-#   docker:
-#     runs-on: self-hosted
+jobs:
+  docker:
+    runs-on: self-hosted
 
-#     steps:
-#       - uses: actions/checkout@v4
-# # Inloggen in ECR in AWS
-#       - name: Login to ECR
-#         run: |
-#           aws ecr get-login-password --region eu-central-1 \
-#           | docker login --username AWS --password-stdin $ECR_REGISTRY
-# # Bouwen van Docker image lokaal
-#       - name: Build Docker image
-#         run: |
-#           docker build -t container_registry:latest .
-# # Geven van tag aan Docker image
-#       - name: Tag Docker image
-#         run: |
-#           docker tag container_registry:latest $ECR_REPOSITORY:latest
-# # Pushen van Docker image naar ECR
-#       - name: Push Docker image to ECR
-#         run: |
-#           docker push $ECR_REPOSITORY:latest
+    steps:
+      - uses: actions/checkout@v4
+# Inloggen in ECR in AWS
+      - name: Login to ECR
+        run: |
+          aws ecr get-login-password --region eu-central-1 \
+          | docker login --username AWS --password-stdin 050670385147.dkr.ecr.eu-central-1.amazonaws.com
+# Bouwen van Docker image lokaal
+      - name: Build Docker image
+        run: |
+          docker build -t container_registry:latest .
+# Geven van tag aan Docker image
+      - name: Tag Docker image
+        run: |
+          docker tag container_registry:latest 050670385147.dkr.ecr.eu-central-1.amazonaws.com/container_registry:latest
+# Pushen van Docker image naar ECR
+      - name: Push Docker image to ECR
+        run: |
+          docker push 050670385147.dkr.ecr.eu-central-1.amazonaws.com/container_registry:latest
 
-# # Verkrijgen van de rollout status en triggeren van de rolling update
-#       - name: Trigger ASG Instance Refresh
-#         id: refresh
-#         run: |
-#           echo "Starting Rolling Instance Refresh for webserver-asg..."
+# Verkrijgen van de rollout status en triggeren van de rolling update
+      - name: Trigger ASG Instance Refresh
+        id: refresh
+        run: |
+          echo "Starting Rolling Instance Refresh for webserver-asg..."
           
-#           REFRESH_ID=$(aws autoscaling start-instance-refresh \
-#             --auto-scaling-group-name webserver-asg \
-#             --strategy Rolling \
-#             --preferences '{
-#               "MinHealthyPercentage": 50,
-#               "InstanceWarmup": 60,
-#               "SkipMatching": false
-#             }' \
-#             --query "InstanceRefreshId" \
-#             --output text)
+          REFRESH_ID=$(aws autoscaling start-instance-refresh \
+            --auto-scaling-group-name webserver-asg \
+            --strategy Rolling \
+            --preferences '{
+              "MinHealthyPercentage": 50,
+              "InstanceWarmup": 60,
+              "SkipMatching": false
+            }' \
+            --query "InstanceRefreshId" \
+            --output text)
           
-#           echo "refresh_id=$REFRESH_ID" >> $GITHUB_OUTPUT
+          echo "refresh_id=$REFRESH_ID" >> $GITHUB_OUTPUT
 
-# # Wacht in GitHub Actions tot de volledige rolling update succesvol is afgerond
-#       - name: Wait for Instance Refresh to complete
-#         run: |
-#           echo "Waiting for Instance Refresh ${{ steps.refresh.outputs.refresh_id }} to finish..."
+# Wacht in GitHub Actions tot de volledige rolling update succesvol is afgerond
+      - name: Wait for Instance Refresh to complete
+        run: |
+          echo "Waiting for Instance Refresh ${{ steps.refresh.outputs.refresh_id }} to finish..."
           
-#           if aws autoscaling wait instance-refresh-completed \
-#             --auto-scaling-group-name webserver-asg \
-#             --instance-refresh-ids ${{ steps.refresh.outputs.refresh_id }}; then
+          if aws autoscaling wait instance-refresh-completed \
+            --auto-scaling-group-name webserver-asg \
+            --instance-refresh-ids ${{ steps.refresh.outputs.refresh_id }}; then
             
-#             echo "Deployment succesvol afgerond!"
-#           else
-#             echo "Deployment is gefaald!"
-#             exit 1
-#           fi
-
+            echo "Deployment succesvol afgerond!"
+          else
+            echo "Deployment is gefaald!"
+            exit 1
+          fi
