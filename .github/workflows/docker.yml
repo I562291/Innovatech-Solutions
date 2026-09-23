@@ -10,8 +10,8 @@ name: Docker deploy
 #       - "dockerfile"
 #       - "templates/**"
 #       - "nginx/**"
-  on:
-    workflow_dispatch:
+on:
+  workflow_dispatch:
 
 
 jobs:
