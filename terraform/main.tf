@@ -2,6 +2,15 @@ provider "aws" {
   region = "eu-central-1"
 }
 
+terraform {
+  backend "s3" {
+    bucket  = "innovatech-terraform-statebucket"
+    key     = "innovatech/terraform.tfstate"
+    region  = "eu-central-1"
+    encrypt = true
+  }
+}
+
 # Networking
 resource "aws_vpc" "vpc_innovatech_solutions" {
   cidr_block       = "10.0.0.0/16"
