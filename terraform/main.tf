@@ -479,9 +479,8 @@ resource "aws_autoscaling_group" "webserver_asg" {
 
   target_group_arns   = [aws_lb_target_group.alb_webserver_tg.arn]
 
-  # Dit zorgt ervoor dat de Autoscaler ingrijpt als de ALB health check faalt
   health_check_type         = "ELB"
-  health_check_grace_period = 300 # every 5 minutes
+  health_check_grace_period = 300 
 
   launch_template { # hier vertellen we de autoscaler welke launch template hij moet gebruiken
     id      = aws_launch_template.template_ec2.id
