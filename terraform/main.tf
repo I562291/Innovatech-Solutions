@@ -621,7 +621,7 @@ resource "aws_db_instance" "mysql" {
   identifier        = "mysql-instance"
   engine            = "mysql"
   engine_version    = "8.0"
-  instance_class    = "db.t2.micro"
+  instance_class    = "db.t3.micro"
   storage_type      = "gp2"
   allocated_storage = 20
   username          = "admin"
