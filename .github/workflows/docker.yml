@@ -1,4 +1,4 @@
-name: docker pull
+name: Docker deploy
 
 on:
   push:
@@ -12,15 +12,60 @@ on:
       - "nginx/**"
 
 jobs:
-  terraform:
+  docker:
     runs-on: self-hosted
-
-    defaults:
-      run:
-        working-directory: /
 
     steps:
       - uses: actions/checkout@v4
+# Inloggen in ECR in AWS
+      - name: Login to ECR
+        run: |
+          aws ecr get-login-password --region eu-central-1 \
+          | docker login --username AWS --password-stdin $ECR_REGISTRY
+# Bouwen van Docker image
+      - name: Build Docker image
+        run: |
+          docker build -t container_registry:latest .
+# Geven van tag aan Docker image
+      - name: Tag Docker image
+        run: |
+          docker tag container_registry:latest $ECR_REPOSITORY:latest
+# Pushen van Docker image naar ECR
+      - name: Push Docker image to ECR
+        run: |
+          docker push $ECR_REPOSITORY:latest
 
-      - name: docker pull
-        run: docker pull
+# Verkrijgen van de rollout status en triggeren van de rolling update
+      - name: Trigger ASG Instance Refresh
+        id: refresh
+        run: |
+          echo "Starting Rolling Instance Refresh for webserver-asg..."
+          
+          REFRESH_ID=$(aws autoscaling start-instance-refresh \
+            --auto-scaling-group-name webserver-asg \
+            --strategy Rolling \
+            --preferences '{
+              "MinHealthyPercentage": 50,
+              "InstanceWarmup": 60,
+              "SkipMatching": false
+            }' \
+            --query "InstanceRefreshId" \
+            --output text)
+          
+          echo "refresh_id=$REFRESH_ID" >> $GITHUB_OUTPUT
+
+# Wacht in GitHub Actions tot de volledige rolling update succesvol is afgerond
+      - name: Wait for Instance Refresh to complete
+        run: |
+          echo "Waiting for Instance Refresh ${{ steps.refresh.outputs.refresh_id }} to finish..."
+          
+          if aws autoscaling wait instance-refresh-completed \
+            --auto-scaling-group-name webserver-asg \
+            --instance-refresh-ids ${{ steps.refresh.outputs.refresh_id }}; then
+            
+            echo "Deployment succesvol afgerond!"
+          else
+            echo "Deployment is gefaald!"
+            exit 1
+          fi
+

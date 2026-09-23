@@ -439,6 +439,13 @@ resource "aws_launch_template" "template_ec2" {
   name_prefix   = "template_ec2-"
   image_id      = data.aws_ssm_parameter.ec2_ami.value
   instance_type = "t2.micro" # t2.micro free tier. We can always expand ec2 during expansion.
+  block_device_mappings {
+      device_name = "/dev/xvda" # Dit is de standaard naam voor de root-schijf
+      ebs {
+        volume_size = 8
+        volume_type = "gp2"
+      }
+  }
 
   network_interfaces {
     associate_public_ip_address = false 
@@ -448,7 +455,7 @@ resource "aws_launch_template" "template_ec2" {
     arn = aws_iam_instance_profile.ec2_instance_profile.arn
   }
 
-  # Deze script installeert Docker na deployment
+  # Deze script installeert Docker na deployment. 30 seconden verschil als je docker al geinstalleerd hebt, dus ik laat het zo omdat dit ook werkt.
   user_data = base64encode(<<-EOF
               #!/bin/bash
               dnf update -y
@@ -560,6 +567,12 @@ resource "aws_instance" "monitoring_server" {
     instance_type = "t2.micro"
     subnet_id     = aws_subnet.Monitoring_subnet.id
     security_groups = [aws_security_group.monitoring_sg.id]
+
+root_block_device {
+    volume_size = 8
+    volume_type = "gp2"
+  }
+
     user_data = <<-EOF
                 #!/bin/bash
                 dnf update -y
@@ -586,6 +599,11 @@ resource "aws_instance" "vpn_server" {
     associate_public_ip_address = true
     vpc_security_group_ids      = [aws_security_group.vpn_sg.id]
 
+    root_block_device {
+    volume_size = 8
+    volume_type = "gp2"
+  }
+
     user_data = <<-EOF
                 #!/bin/bash
                 dnf update -y
@@ -605,14 +623,16 @@ resource "aws_db_instance" "mysql" {
   engine            = "mysql"
   engine_version    = "8.0"
   instance_class    = "db.t2.micro"
+  storage_type      = "gp2"
   allocated_storage = 20
   username          = "admin"
   password          = "password"
   db_name           = "innovatech"
-  skip_final_snapshot = true
+  skip_final_snapshot = true # zodat als ik terraform destroy/delete doe dat echt alles weg is, in productie is dit natuurlijk niet slim
   vpc_security_group_ids = [aws_security_group.database_sg.id]
   db_subnet_group_name = aws_db_subnet_group.mysql_subnet_group.name
-  
+  publicly_accessible = false
+
   tags = {
     Name    = "mysql"
     Project = "innovatech_solutions"
