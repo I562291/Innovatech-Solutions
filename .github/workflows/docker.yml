@@ -57,18 +57,3 @@ jobs:
             --output text)
           
           echo "refresh_id=$REFRESH_ID" >> $GITHUB_OUTPUT
-
-# Wacht in GitHub Actions tot de volledige rolling update succesvol is afgerond
-      - name: Wait for Instance Refresh to complete
-        run: |
-          echo "Waiting for Instance Refresh ${{ steps.refresh.outputs.refresh_id }} to finish..."
-          
-          if aws autoscaling wait instance-refresh-completed \
-            --auto-scaling-group-name webserver-asg \
-            --instance-refresh-ids ${{ steps.refresh.outputs.refresh_id }}; then
-            
-            echo "Deployment succesvol afgerond!"
-          else
-            echo "Deployment is gefaald!"
-            exit 1
-          fi
