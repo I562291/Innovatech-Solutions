@@ -306,6 +306,14 @@ resource "aws_security_group" "database_sg" {
     cidr_blocks = ["10.0.4.0/24"]
   }
 
+# tijdelijke test om database lokaal te kunnen gebruiken, dit moet later weg.
+  ingress { # git codespace -> Database
+  from_port   = 3306
+  to_port     = 3306
+  protocol    = "tcp"
+  cidr_blocks = ["4.180.183.246/32"]
+}
+
   egress { # Database -> Webserver
     from_port   = 3306
     to_port     = 3306
