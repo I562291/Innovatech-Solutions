@@ -52,4 +52,5 @@ jobs:
               "MinHealthyPercentage": 50,
               "InstanceWarmup": 60,
               "SkipMatching": false
-            }' \
+            }'
+          echo "Deployment succesvol getriggerd in AWS!"
