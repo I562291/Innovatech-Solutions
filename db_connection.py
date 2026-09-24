@@ -1,5 +1,6 @@
 import mysql.connector
 from dotenv import load_dotenv
+import os
 
 def get_connection():
     return mysql.connector.connect(
