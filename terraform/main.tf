@@ -410,6 +410,14 @@ resource "aws_lb_target_group" "alb_webserver_tg" {
   protocol    = "HTTP"
   vpc_id      = aws_vpc.vpc_innovatech_solutions.id
 
+health_check {
+    path                = "/"
+    healthy_threshold   = 2
+    unhealthy_threshold = 2
+    timeout             = 5
+    interval            = 30
+    matcher             = "200"
+  }
   
   tags = {
     Project = "innovatech_solutions"
@@ -502,7 +510,7 @@ resource "aws_autoscaling_group" "webserver_asg" {
   target_group_arns   = [aws_lb_target_group.alb_webserver_tg.arn]
 
   health_check_type         = "ELB"
-  health_check_grace_period = 300 
+  health_check_grace_period = 420
 
   launch_template { # hier vertellen we de autoscaler welke launch template hij moet gebruiken
     id      = aws_launch_template.template_ec2.id
