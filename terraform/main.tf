@@ -464,16 +464,30 @@ resource "aws_launch_template" "template_ec2" {
     arn = aws_iam_instance_profile.ec2_instance_profile.arn
   }
 
-  # Deze script installeert Docker na deployment. 30 seconden verschil als je docker al geinstalleerd hebt, dus ik laat het zo omdat dit ook werkt.
+# Deze script installeert Docker na deployment.
   user_data = base64encode(<<-EOF
               #!/bin/bash
               dnf update -y
               dnf install -y docker
               systemctl enable docker
               systemctl start docker
+              
+              # Inloggen op ECR
               aws ecr get-login-password --region eu-central-1 | docker login --username AWS --password-stdin ${split("/", aws_ecr_repository.container_registry.repository_url)[0]}
+              
+              # De nieuwste container pullen
               docker pull ${aws_ecr_repository.container_registry.repository_url}:latest
-              docker run -d -p 80:80 --name mijn-web-app --restart always ${aws_ecr_repository.container_registry.repository_url}:latest
+              
+              # De container starten MET de juiste database variabelen
+              docker run -d \
+                -p 80:80 \
+                --name mijn-web-app \
+                --restart always \ 
+                -e DB_HOST="${aws_db_instance.mysql.address}" \
+                -e DB_USER="admin" \
+                -e DB_PASSWORD="password" \
+                -e DB_NAME="innovatech" \
+                ${aws_ecr_repository.container_registry.repository_url}:latest 
               EOF
   )
 }

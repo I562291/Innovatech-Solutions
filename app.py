@@ -1,5 +1,7 @@
 from flask import Flask, render_template, request
 from db_connection import create_ticket
+import os
+
 
 app = Flask(__name__)
 
