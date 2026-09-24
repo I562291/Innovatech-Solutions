@@ -478,16 +478,16 @@ resource "aws_launch_template" "template_ec2" {
               # De nieuwste container pullen
               docker pull ${aws_ecr_repository.container_registry.repository_url}:latest
               
-              # De container starten MET de juiste database variabelen
+              # De container correct starten MET alle variabelen op de juiste plek
               docker run -d \
                 -p 80:80 \
                 --name mijn-web-app \
-                --restart always \ 
+                --restart always \
                 -e DB_HOST="${aws_db_instance.mysql.address}" \
                 -e DB_USER="admin" \
                 -e DB_PASSWORD="password" \
                 -e DB_NAME="innovatech" \
-                ${aws_ecr_repository.container_registry.repository_url}:latest 
+                ${aws_ecr_repository.container_registry.repository_url}:latest
               EOF
   )
 }
