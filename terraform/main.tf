@@ -305,12 +305,11 @@ resource "aws_security_group" "database_sg" {
     protocol    = "tcp"
     cidr_blocks = ["10.0.4.0/24"]
   }
-
-  egress { # Database -> Webserver
-    from_port   = 3306
-    to_port     = 3306
-    protocol    = "tcp"
-    cidr_blocks = ["10.0.5.0/24", "10.0.6.0/24"]
+  egress { # outbound traffic van database mag overal naar toe gaan
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   tags = {
