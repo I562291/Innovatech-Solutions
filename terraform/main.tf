@@ -661,7 +661,7 @@ resource "aws_db_instance" "mysql" {
   skip_final_snapshot = true # zodat als ik terraform destroy/delete doe dat echt alles weg is, in productie is dit natuurlijk niet slim
   vpc_security_group_ids = [aws_security_group.database_sg.id]
   db_subnet_group_name = aws_db_subnet_group.mysql_subnet_group.name
-  publicly_accessible = false
+  publicly_accessible = true
   backup_retention_period = 7   # Kiest hoe lang de backups bewaard blijven (bijv. 7 dagen)
   backup_window           = "03:00-04:00" # Tijdstip in de nacht waarop de daily snapshot wordt gemaakt
 
