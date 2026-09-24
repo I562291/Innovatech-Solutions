@@ -53,7 +53,3 @@ jobs:
               "InstanceWarmup": 60,
               "SkipMatching": false
             }' \
-            --query "InstanceRefreshId" \
-            --output text)
-          
-          echo "refresh_id=$REFRESH_ID" >> $GITHUB_OUTPUT
