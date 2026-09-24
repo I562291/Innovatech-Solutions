@@ -640,6 +640,8 @@ resource "aws_db_instance" "mysql" {
   vpc_security_group_ids = [aws_security_group.database_sg.id]
   db_subnet_group_name = aws_db_subnet_group.mysql_subnet_group.name
   publicly_accessible = false
+  backup_retention_period = 7   # Kiest hoe lang de backups bewaard blijven (bijv. 7 dagen)
+  backup_window           = "03:00-04:00" # Tijdstip in de nacht waarop de daily snapshot wordt gemaakt
 
   tags = {
     Name    = "mysql"
