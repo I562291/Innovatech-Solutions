@@ -45,7 +45,7 @@ jobs:
         run: |
           echo "Starting Rolling Instance Refresh for webserver-asg..."
           
-          REFRESH_ID=$(aws autoscaling start-instance-refresh \
+          aws autoscaling start-instance-refresh \
             --auto-scaling-group-name webserver-asg \
             --strategy Rolling \
             --preferences '{
@@ -53,4 +53,5 @@ jobs:
               "InstanceWarmup": 60,
               "SkipMatching": false
             }'
+          
           echo "Deployment succesvol getriggerd in AWS!"
