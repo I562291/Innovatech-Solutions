@@ -506,7 +506,7 @@ resource "aws_autoscaling_group" "webserver_asg" {
   desired_capacity    = 2
   max_size            = 3
   min_size            = 2
-  force_delete        = true
+  force_delete        = true # kijkt niet of er eerst running instances zijn, maar verwijdert ze direct
 
   target_group_arns   = [aws_lb_target_group.alb_webserver_tg.arn]
 
@@ -626,9 +626,8 @@ resource "aws_instance" "vpn_server" {
     ami           = data.aws_ssm_parameter.ec2_ami.value
     instance_type = "t3.micro"
     subnet_id     = aws_subnet.VPN_subnet.id
-    associate_public_ip_address = true
     vpc_security_group_ids      = [aws_security_group.vpn_sg.id]
-    source_dest_check = false
+    source_dest_check = false  
 
     root_block_device {
     volume_size = 8
@@ -646,6 +645,18 @@ resource "aws_instance" "vpn_server" {
         Name    = "VPN Server"
         Project = "innovatech_solutions"
     }
+}
+
+resource "aws_eip" "vpn_static_ip" { 
+  domain = "vpc"
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
+resource "aws_eip_association" "vpn_eip_association" {
+  instance_id   = aws_instance.vpn_server.id
+  allocation_id = aws_eip.vpn_static_ip.id
 }
 
 # mysql database ----------------------------------------------------------------------------------------------
