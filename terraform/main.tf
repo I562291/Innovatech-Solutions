@@ -454,7 +454,7 @@ data "aws_ssm_parameter" "ec2_ami" {
 resource "aws_launch_template" "template_ec2" {
   name_prefix   = "template_ec2-"
   image_id      = data.aws_ssm_parameter.ec2_ami.value
-  instance_type = "t2.micro" # t2.micro free tier. We can always expand ec2 during expansion.
+  instance_type = "t3.micro" # t3.micro free tier. We can always expand ec2 during expansion.
   block_device_mappings {
       device_name = "/dev/xvda" # Dit is de standaard naam voor de root-schijf
       ebs {
@@ -593,7 +593,7 @@ resource "aws_iam_instance_profile" "ec2_instance_profile" {
 # Monitoring ----------------------------------------------------------------------------------------------
 resource "aws_instance" "monitoring_server" {
     ami           = data.aws_ssm_parameter.ec2_ami.value
-    instance_type = "t2.micro"
+    instance_type = "t3.micro"
     subnet_id     = aws_subnet.Monitoring_subnet.id
     security_groups = [aws_security_group.monitoring_sg.id]
 
@@ -623,10 +623,11 @@ root_block_device {
 # vpn server ----------------------------------------------------------------------------------------------
 resource "aws_instance" "vpn_server" {
     ami           = data.aws_ssm_parameter.ec2_ami.value
-    instance_type = "t2.micro"
+    instance_type = "t3.micro"
     subnet_id     = aws_subnet.VPN_subnet.id
     associate_public_ip_address = true
     vpc_security_group_ids      = [aws_security_group.vpn_sg.id]
+    source_dest_check = false
 
     root_block_device {
     volume_size = 8
