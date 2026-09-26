@@ -506,6 +506,7 @@ resource "aws_autoscaling_group" "webserver_asg" {
   desired_capacity    = 2
   max_size            = 3
   min_size            = 2
+  force_delete        = true
 
   target_group_arns   = [aws_lb_target_group.alb_webserver_tg.arn]
 
