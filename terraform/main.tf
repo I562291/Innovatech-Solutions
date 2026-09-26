@@ -650,7 +650,7 @@ resource "aws_instance" "vpn_server" {
 resource "aws_eip" "vpn_static_ip" { 
   domain = "vpc"
   lifecycle {
-    prevent_destroy = true
+    prevent_destroy = true # dit werkt niet omdat de hele omgeving dan niet verwijdert kan worden
   }
 }
 
