@@ -675,8 +675,9 @@ resource "aws_instance" "vpn_server" {
                 ListenPort = 51820
 
                 # Zorgt dat verkeer naar AWS netjes via NAT teruggestuurd kan worden
-                PostUp = iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
-                PostDown = iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE 
+                PostUp = iptables -t nat -A POSTROUTING -o ens5 -j MASQUERADE
+                PostDown = iptables -t nat -D POSTROUTING -o ens5 -j MASQUERADE
+
 
                 # 4. Configure peer
                 [Peer]
