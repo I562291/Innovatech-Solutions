@@ -597,7 +597,7 @@ resource "aws_instance" "monitoring_server" {
     ami           = data.aws_ssm_parameter.ec2_ami.value
     instance_type = "t3.micro"
     subnet_id     = aws_subnet.Monitoring_subnet.id
-    security_groups = [aws_security_group.monitoring_sg.id]
+    vpc_security_group_ids      = [aws_security_group.monitoring_sg.id]
 
 root_block_device {
     volume_size = 8
@@ -629,6 +629,7 @@ resource "aws_instance" "vpn_server" {
     subnet_id     = aws_subnet.VPN_subnet.id
     vpc_security_group_ids      = [aws_security_group.vpn_sg.id]
     source_dest_check = false # zodat de vpn server ook verkeer kan forwarden naar de database en monitoring server
+    
 
     root_block_device {
     volume_size = 8
@@ -637,20 +638,35 @@ resource "aws_instance" "vpn_server" {
 
     user_data = <<-EOF
                 #!/bin/bash
-                # 1. install wireguard
-                  dnf update -y
-                  dnf install -y wireguard
-                  systemctl enable wireguard
-                  systemctl start wireguard
+                # 1. install wireguard-tools
+                dnf update -y
+                dnf install wireguard-tools iptables -y 
 
-                # 2. configure firewall
-                sudo ufw enable
-                sudo ufw allow 51820/udp
-
-                # 3. enable IP forwarding
+                # 2. enable IP forwarding
                 echo "net.ipv4.ip_forward = 1" > /etc/sysctl.d/99-wireguard.conf
                 sysctl -p /etc/sysctl.d/99-wireguard.conf
 
+                # 3. configure wireguard
+                cat << 'CONFIG' > /etc/wireguard/wg0.conf
+                [Interface]
+                PrivateKey = 8IsroUcmX1sd51Ifals/qHq/pKfFP8f3+Sq2IomoikA=
+                Address = 10.10.4.2/32
+                ListenPort = 51820
+
+                # Zorgt dat verkeer naar AWS netjes via NAT teruggestuurd kan worden
+                PostUp = iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+                PostDown = iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE 
+
+                # 4. Configure peer
+                [Peer]
+                PublicKey = UFZhBD13qwfvpbUGsFKFW9Q9Z1jyEUnkXlO0DNAjmic=
+
+                # IP van pfSense binnen de tunnel en het lokale netwerk
+                AllowedIPs = 10.10.4.1/32, 192.168.1.0/24
+                CONFIG
+                
+                chmod 600 /etc/wireguard/wg0.conf
+                systemctl enable --now wg-quick@wg0
                 EOF
     tags = {
         Name    = "VPN Server"
@@ -658,14 +674,16 @@ resource "aws_instance" "vpn_server" {
     }
 }
 
-resource "aws_eip" "vpn_static_ip" { 
-  domain = "vpc"
-
+data "aws_eip" "vpn_static_ip" {
+  tags = {
+    Name = "vpn_static_ip"
+  }
 }
 
+# Koppel hem aan je vpn_server EC2
 resource "aws_eip_association" "vpn_eip_association" {
   instance_id   = aws_instance.vpn_server.id
-  allocation_id = aws_eip.vpn_static_ip.id
+  allocation_id = data.aws_eip.vpn_static_ip.id
 }
 
 # mysql database ----------------------------------------------------------------------------------------------
