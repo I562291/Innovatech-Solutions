@@ -638,6 +638,10 @@ resource "aws_instance" "vpn_server" {
 
     user_data = <<-EOF
                 #!/bin/bash
+                # Wacht tot Elastic IP geassocieerd is en internet werkt
+                until ping -c 1 8.8.8.8 &>/dev/null; do
+                    sleep 3
+                done
                 # 1. install wireguard-tools
                 dnf update -y
                 dnf install wireguard-tools iptables -y 
@@ -647,6 +651,7 @@ resource "aws_instance" "vpn_server" {
                 sysctl -p /etc/sysctl.d/99-wireguard.conf
 
                 # 3. configure wireguard
+                mkdir -p /etc/wireguard
                 cat << 'CONFIG' > /etc/wireguard/wg0.conf
                 [Interface]
                 PrivateKey = 8IsroUcmX1sd51Ifals/qHq/pKfFP8f3+Sq2IomoikA=
