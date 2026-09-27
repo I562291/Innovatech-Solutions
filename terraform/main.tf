@@ -358,6 +358,14 @@ ingress {
     cidr_blocks = ["10.0.3.0/24"]
   }
 
+  egress {
+  description = "Temporary internet access for installation"
+  from_port   = 0
+  to_port     = 0
+  protocol    = "-1"
+  cidr_blocks = ["0.0.0.0/0"]
+}
+
   tags = {
     Project = "innovatech_solutions"
     Name    = "vpn_sg"
