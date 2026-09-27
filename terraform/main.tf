@@ -321,9 +321,10 @@ resource "aws_security_group" "database_sg" {
 resource "aws_security_group" "vpn_sg" {
   vpc_id = aws_vpc.vpc_innovatech_solutions.id
 
-  ingress { # OpenVPN
-    from_port   = 500
-    to_port     = 500
+ingress {
+    description = "WireGuard tunnel from pfSense"
+    from_port   = 51820
+    to_port     = 51820
     protocol    = "udp"
     cidr_blocks = ["145.220.75.5/32"]
   }
@@ -627,7 +628,7 @@ resource "aws_instance" "vpn_server" {
     instance_type = "t3.micro"
     subnet_id     = aws_subnet.VPN_subnet.id
     vpc_security_group_ids      = [aws_security_group.vpn_sg.id]
-    source_dest_check = false  
+    source_dest_check = false # zodat de vpn server ook verkeer kan forwarden naar de database en monitoring server
 
     root_block_device {
     volume_size = 8
@@ -636,10 +637,20 @@ resource "aws_instance" "vpn_server" {
 
     user_data = <<-EOF
                 #!/bin/bash
-                dnf update -y
-                dnf install -y openvpn
-                systemctl enable openvpn
-                systemctl start openvpn
+                # 1. install wireguard
+                  dnf update -y
+                  dnf install -y wireguard
+                  systemctl enable wireguard
+                  systemctl start wireguard
+
+                # 2. configure firewall
+                sudo ufw enable
+                sudo ufw allow 51820/udp
+
+                # 3. enable IP forwarding
+                echo "net.ipv4.ip_forward = 1" > /etc/sysctl.d/99-wireguard.conf
+                sysctl -p /etc/sysctl.d/99-wireguard.conf
+
                 EOF
     tags = {
         Name    = "VPN Server"
@@ -649,9 +660,7 @@ resource "aws_instance" "vpn_server" {
 
 resource "aws_eip" "vpn_static_ip" { 
   domain = "vpc"
-  lifecycle {
-    prevent_destroy = true # dit werkt niet omdat de hele omgeving dan niet verwijdert kan worden
-  }
+
 }
 
 resource "aws_eip_association" "vpn_eip_association" {
