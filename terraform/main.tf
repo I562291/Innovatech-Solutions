@@ -326,7 +326,7 @@ ingress {
     from_port   = 51820
     to_port     = 51820
     protocol    = "udp"
-    cidr_blocks = ["145.220.75.5/32"]
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   egress { # VPN -> Database
