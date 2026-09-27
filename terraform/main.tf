@@ -329,6 +329,14 @@ ingress {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
+  ingress {
+  description = "SSH temporary"
+  from_port   = 22
+  to_port     = 22
+  protocol    = "tcp"
+  cidr_blocks = ["0.0.0.0/0"]
+}
+
   egress { # VPN -> Database
     from_port   = 3306
     to_port     = 3306
@@ -629,7 +637,7 @@ resource "aws_instance" "vpn_server" {
     subnet_id     = aws_subnet.VPN_subnet.id
     vpc_security_group_ids      = [aws_security_group.vpn_sg.id]
     source_dest_check = false # zodat de vpn server ook verkeer kan forwarden naar de database en monitoring server
-    
+    key_name = aws_key_pair.vpn_key.key_name
 
     root_block_device {
     volume_size = 8
@@ -689,6 +697,11 @@ data "aws_eip" "vpn_static_ip" {
 resource "aws_eip_association" "vpn_eip_association" {
   instance_id   = aws_instance.vpn_server.id
   allocation_id = data.aws_eip.vpn_static_ip.id
+}
+
+resource "aws_key_pair" "vpn_key" {
+  key_name   = "innovatech-vpn"
+  public_key = file("~/.ssh/innovatech-vpn.pub")
 }
 
 # mysql database ----------------------------------------------------------------------------------------------
