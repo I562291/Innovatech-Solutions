@@ -1,0 +1,27 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  - job_name: "webservers"
+    ec2_sd_configs:
+      - region: eu-central-1
+        port: 9100
+
+    relabel_configs:
+      - source_labels: [__meta_ec2_tag_Role]
+        regex: webserver
+        action: keep
+
+  - job_name: "vpn"
+    ec2_sd_configs:
+      - region: eu-central-1
+        port: 9100
+
+    relabel_configs:
+      - source_labels: [__meta_ec2_tag_Role]
+        regex: vpn
+        action: keep

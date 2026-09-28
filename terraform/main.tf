@@ -269,6 +269,13 @@ resource "aws_security_group" "webserver_SG" {
     cidr_blocks = ["10.0.1.0/24", "10.0.2.0/24"]
   }
 
+  ingress {
+    from_port = 9100
+    to_port = 9100
+    protocol = "tcp"
+    cidr_blocks = ["10.0.3.0/24"]
+  }
+
   egress { # Webserver -> Database
     from_port = 3306
     to_port = 3306
@@ -336,6 +343,13 @@ ingress {
   protocol    = "tcp"
   cidr_blocks = ["0.0.0.0/0"]
 }
+
+  ingress {
+    from_port   = 9100
+    to_port     = 9100
+    protocol    = "tcp"
+    cidr_blocks = ["10.0.3.0/24"]
+  }
 
   egress { # VPN -> Database
     from_port   = 3306
@@ -512,8 +526,42 @@ resource "aws_launch_template" "template_ec2" {
                 -e DB_PASSWORD="password" \
                 -e DB_NAME="innovatech" \
                 ${aws_ecr_repository.container_registry.repository_url}:latest
+
+                # node exporter prometheus installeren
+                dnf install -y wget
+
+                cd /tmp
+                wget https://github.com/prometheus/node_exporter/releases/download/v1.9.1/node_exporter-1.9.1.linux-amd64.tar.gz
+                tar -xzf node_exporter-1.9.1.linux-amd64.tar.gz
+                mv node_exporter-1.9.1.linux-amd64/node_exporter /usr/local/bin/node_exporter
+
+                cat << 'stop' > /etc/systemd/system/node_exporter.service
+                [Unit]
+                Description=Prometheus Node Exporter
+                After=network.target
+
+                [Service]
+                ExecStart=/usr/local/bin/node_exporter
+                Restart=always
+
+                [Install]
+                WantedBy=multi-user.target
+                stop
+
+                systemctl daemon-reload
+                systemctl enable --now node_exporter
               EOF
   )
+  
+tag_specifications {
+  resource_type = "instance"
+
+  tags = {
+    Project = "innovatech_solutions"
+    Name    = "webserver"
+    Role    = "webserver"
+  }
+}
 }
 
 
@@ -623,19 +671,74 @@ root_block_device {
     user_data = <<-EOF
                 #!/bin/bash
                 dnf update -y
-                dnf install -y prometheus
-                dnf install -y grafana
-                systemctl enable prometheus
-                systemctl start prometheus
-                systemctl enable grafana
-                systemctl start grafana
+                dnf install -y docker git
+                systemctl enable docker
+                systemctl start docker
+
+                mkdir -p /usr/local/lib/docker/cli-plugins
+                curl -SL https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64 -o /usr/local/lib/docker/cli-plugins/docker-compose
+                chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+
+                git clone https://github.com/I562291/Innovatech-Solutions.git /opt/innovatech
+                cd /opt/innovatech/monitoring
+                docker compose up -d
                 EOF
     
-
+    iam_instance_profile = aws_iam_instance_profile.prometheus_ec2_instance_profile.name
     tags = {
         Name    = "Monitoring Server"
         Project = "innovatech_solutions"
     }
+}
+
+resource "aws_iam_role" "prometheus_role" {
+  name = "prometheus-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "ec2.amazonaws.com"
+        }
+      }
+    ]
+  })
+
+  tags = {
+    Project = "innovatech_solutions"
+  }
+}
+
+resource "aws_iam_policy" "prometheus_policy" {
+  name        = "prometheus-policy"
+  description = "Allows Prometheus EC2 service discovery to read EC2 tags and instances"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ec2:DescribeInstances",
+          "ec2:DescribeTags"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "prometheus_role_policy_attachment" {
+  role       = aws_iam_role.prometheus_role.name
+  policy_arn = aws_iam_policy.prometheus_policy.arn
+}
+
+resource "aws_iam_instance_profile" "prometheus_ec2_instance_profile" {
+  name = "prometheus-ec2-instance-profile"
+  role = aws_iam_role.prometheus_role.name
 }
 
 # vpn server ----------------------------------------------------------------------------------------------
@@ -689,11 +792,36 @@ resource "aws_instance" "vpn_server" {
                 
                 chmod 600 /etc/wireguard/wg0.conf
                 systemctl enable --now wg-quick@wg0
+
+                # node exporter prometheus installeren
+                dnf install -y wget
+
+                cd /tmp
+                wget https://github.com/prometheus/node_exporter/releases/download/v1.9.1/node_exporter-1.9.1.linux-amd64.tar.gz
+                tar -xzf node_exporter-1.9.1.linux-amd64.tar.gz
+                mv node_exporter-1.9.1.linux-amd64/node_exporter /usr/local/bin/node_exporter
+
+                cat << 'stop' > /etc/systemd/system/node_exporter.service
+                [Unit]
+                Description=Prometheus Node Exporter
+                After=network.target
+
+                [Service]
+                ExecStart=/usr/local/bin/node_exporter
+                Restart=always
+
+                [Install]
+                WantedBy=multi-user.target
+                stop
+
+                systemctl daemon-reload
+                systemctl enable --now node_exporter
                 EOF
-    tags = {
-        Name    = "VPN Server"
-        Project = "innovatech_solutions"
-    }
+  tags = {
+    Project = "innovatech_solutions"
+    Name    = "VPN Server"
+    Role    = "vpn"
+  }
 }
 
 data "aws_eip" "vpn_static_ip" {

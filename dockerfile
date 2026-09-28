@@ -12,4 +12,4 @@ COPY nginx/nginx.conf /etc/nginx/nginx.conf
 
 COPY . . 
 
-CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:5000 app:app & nginx -g 'daemon off;'"]
+CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:5000 app:app & nginx -g 'daemon off;'"] 
