@@ -555,7 +555,7 @@ resource "aws_launch_template" "template_ec2" {
 
                 [Install]
                 WantedBy=multi-user.target
-                stop
+stop
 
                 systemctl daemon-reload
                 systemctl enable --now node_exporter
@@ -797,7 +797,7 @@ resource "aws_instance" "vpn_server" {
 
                 # IP van pfSense binnen de tunnel en het lokale netwerk
                 AllowedIPs = 10.10.4.1/32, 192.168.1.0/24
-                CONFIG
+CONFIG
                 
                 chmod 600 /etc/wireguard/wg0.conf
                 systemctl enable --now wg-quick@wg0
@@ -821,7 +821,7 @@ resource "aws_instance" "vpn_server" {
 
                 [Install]
                 WantedBy=multi-user.target
-                stop
+stop
 
                 systemctl daemon-reload
                 systemctl enable --now node_exporter
