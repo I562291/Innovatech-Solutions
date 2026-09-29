@@ -536,29 +536,29 @@ resource "aws_launch_template" "template_ec2" {
                 -e DB_NAME="innovatech" \
                 ${aws_ecr_repository.container_registry.repository_url}:latest
 
-                # node exporter prometheus installeren
-                dnf install -y wget
+              # node exporter prometheus installeren
+              dnf install -y wget
 
-                cd /tmp
-                wget https://github.com/prometheus/node_exporter/releases/download/v1.9.1/node_exporter-1.9.1.linux-amd64.tar.gz
-                tar -xzf node_exporter-1.9.1.linux-amd64.tar.gz
-                mv node_exporter-1.9.1.linux-amd64/node_exporter /usr/local/bin/node_exporter
+              cd /tmp
+              wget https://github.com/prometheus/node_exporter/releases/download/v1.9.1/node_exporter-1.9.1.linux-amd64.tar.gz
+              tar -xzf node_exporter-1.9.1.linux-amd64.tar.gz
+              mv node_exporter-1.9.1.linux-amd64/node_exporter /usr/local/bin/node_exporter
 
-                cat << 'stop' > /etc/systemd/system/node_exporter.service
-                [Unit]
-                Description=Prometheus Node Exporter
-                After=network.target
+              cat <<'NODEEXPORTER' > /etc/systemd/system/node_exporter.service
+              [Unit]
+              Description=Prometheus Node Exporter
+              After=network.target
 
-                [Service]
-                ExecStart=/usr/local/bin/node_exporter
-                Restart=always
+              [Service]
+              ExecStart=/usr/local/bin/node_exporter
+              Restart=always
 
-                [Install]
-                WantedBy=multi-user.target
-stop
+              [Install]
+              WantedBy=multi-user.target
+              NODEEXPORTER
 
-                systemctl daemon-reload
-                systemctl enable --now node_exporter
+              systemctl daemon-reload
+              systemctl enable --now node_exporter
               EOF
   )
   
@@ -780,25 +780,20 @@ resource "aws_instance" "vpn_server" {
 
                 # 3. configure wireguard
                 mkdir -p /etc/wireguard
-                cat << 'CONFIG' > /etc/wireguard/wg0.conf
+                cat <<'CONFIG' > /etc/wireguard/wg0.conf
                 [Interface]
                 PrivateKey = 8IsroUcmX1sd51Ifals/qHq/pKfFP8f3+Sq2IomoikA=
                 Address = 10.10.4.2/32
                 ListenPort = 51820
 
-                # Zorgt dat verkeer naar AWS netjes via NAT teruggestuurd kan worden
                 PostUp = iptables -t nat -A POSTROUTING -o ens5 -j MASQUERADE
                 PostDown = iptables -t nat -D POSTROUTING -o ens5 -j MASQUERADE
 
-
-                # 4. Configure peer
                 [Peer]
                 PublicKey = UFZhBD13qwfvpbUGsFKFW9Q9Z1jyEUnkXlO0DNAjmic=
-
-                # IP van pfSense binnen de tunnel en het lokale netwerk
                 AllowedIPs = 10.10.4.1/32, 192.168.1.0/24
-CONFIG
-                
+                CONFIG
+
                 chmod 600 /etc/wireguard/wg0.conf
                 systemctl enable --now wg-quick@wg0
 
@@ -810,7 +805,7 @@ CONFIG
                 tar -xzf node_exporter-1.9.1.linux-amd64.tar.gz
                 mv node_exporter-1.9.1.linux-amd64/node_exporter /usr/local/bin/node_exporter
 
-                cat << 'stop' > /etc/systemd/system/node_exporter.service
+                cat <<'NODEEXPORTER' > /etc/systemd/system/node_exporter.service
                 [Unit]
                 Description=Prometheus Node Exporter
                 After=network.target
@@ -821,7 +816,7 @@ CONFIG
 
                 [Install]
                 WantedBy=multi-user.target
-stop
+                NODEEXPORTER
 
                 systemctl daemon-reload
                 systemctl enable --now node_exporter
