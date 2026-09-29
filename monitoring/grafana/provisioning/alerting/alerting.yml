@@ -111,7 +111,7 @@ groups:
             datasourceUid: prometheus
             model:
               editorMode: code
-              expr: rate(node_network_receive_bytes_total{device!~"lo|docker.*"}[1m]) == bool 0
+              expr: node_network_up{job="webservers",device!~"lo|docker.*"} == bool 0
               instant: true
               range: false
               refId: A
