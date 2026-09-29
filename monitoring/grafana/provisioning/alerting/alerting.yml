@@ -7,7 +7,7 @@ contactPoints:
       - uid: discord-receiver
         type: discord
         settings:
-          url: https://discord.com/api/webhooks/1554604810156638260/pD0aU74GBegoTvm6j4DbUmbIDsqFA92TN048-cnjgxXD-WhkM_cxBL40J58QGgzoxpYW
+          url: $DISCORD_WEBHOOK_URL
         disableResolveMessage: false
 
 policies:
@@ -97,9 +97,9 @@ groups:
           summary: "Service down: {{ $labels.instance }}"
           description: "Target {{ $labels.instance }} ({{ $labels.job }}) is al 1 minuut onbereikbaar!"
 
-      # 3. Connectivity Issues Alert
+      # 3. Network Interface Down Alert
       - uid: alert-connectivity-issues
-        title: Connectivity Issues (No Inbound Traffic)
+        title: Network Interface Down
         condition: B
         for: 2m
         data:
@@ -111,7 +111,7 @@ groups:
             datasourceUid: prometheus
             model:
               editorMode: code
-              expr: sum by (instance) (rate(node_network_receive_bytes_total{job="webservers",device!~"lo|docker.*"}[2m])) == 0
+              expr: node_network_up{job="webservers",device!~"lo|docker.*"} == bool 0
               instant: true
               range: false
               refId: A
@@ -132,5 +132,5 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "Netwerk connectivity probleem op {{ $labels.instance }}"
-          description: "Geen inkomend netwerkverkeer geregistreerd voor minstens 2 minuten."
+          summary: "Netwerkinterface down op {{ $labels.instance }}"
+          description: "Een fysieke netwerkinterface op deze webserver is niet beschikbaar."

@@ -2,6 +2,13 @@ provider "aws" {
   region = "eu-central-1"
 }
 
+data "aws_caller_identity" "current" {}
+
+data "aws_ssm_parameter" "db_password" {
+  name            = "/innovatech/db/password"
+  with_decryption = true
+}
+
 terraform {
   backend "s3" {
     bucket  = "innovatech-terraform-statebucket"
@@ -515,9 +522,15 @@ resource "aws_launch_template" "template_ec2" {
   user_data = base64encode(<<-EOF
               #!/bin/bash
               dnf update -y
-              dnf install -y docker
+              dnf install -y docker awscli
               systemctl enable docker
               systemctl start docker
+
+              DB_PASSWORD=$(aws ssm get-parameter \
+                --name /innovatech/db/password \
+                --with-decryption \
+                --query Parameter.Value \
+                --output text)
               
               # Inloggen op ECR
               aws ecr get-login-password --region eu-central-1 | docker login --username AWS --password-stdin ${split("/", aws_ecr_repository.container_registry.repository_url)[0]}
@@ -532,7 +545,7 @@ resource "aws_launch_template" "template_ec2" {
                 --restart always \
                 -e DB_HOST="${aws_db_instance.mysql.address}" \
                 -e DB_USER="admin" \
-                -e DB_PASSWORD="password" \
+                -e DB_PASSWORD="$DB_PASSWORD" \
                 -e DB_NAME="innovatech" \
                 ${aws_ecr_repository.container_registry.repository_url}:latest
 
@@ -649,6 +662,13 @@ resource "aws_iam_policy" "iam_policy" {
       ],
       "Effect": "Allow",
       "Resource": "*"
+    },
+    {
+      "Action": [
+        "ssm:GetParameter"
+      ],
+      "Effect": "Allow",
+      "Resource": "arn:aws:ssm:eu-central-1:${data.aws_caller_identity.current.account_id}:parameter/innovatech/db/password"
     }
   ]
 }
@@ -680,7 +700,7 @@ root_block_device {
     user_data = <<-EOF
                 #!/bin/bash
                 dnf update -y
-                dnf install -y docker git
+                dnf install -y docker git awscli
                 systemctl enable docker
                 systemctl start docker
 
@@ -690,6 +710,13 @@ root_block_device {
 
                 git clone https://github.com/I562291/Innovatech-Solutions.git /opt/innovatech
                 cd /opt/innovatech/monitoring
+                DISCORD_WEBHOOK_URL=$(aws ssm get-parameter \
+                  --name /innovatech/discord/webhook \
+                  --with-decryption \
+                  --query Parameter.Value \
+                  --output text)
+                printf 'DISCORD_WEBHOOK_URL=%s\n' "$DISCORD_WEBHOOK_URL" > .env
+                chmod 600 .env
                 docker compose up -d
                 EOF
     
@@ -735,6 +762,13 @@ resource "aws_iam_policy" "prometheus_policy" {
           "ec2:DescribeTags"
         ]
         Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "ssm:GetParameter"
+        ]
+        Resource = "arn:aws:ssm:eu-central-1:${data.aws_caller_identity.current.account_id}:parameter/innovatech/discord/webhook"
       }
     ]
   })
@@ -756,6 +790,7 @@ resource "aws_instance" "vpn_server" {
     instance_type = "t3.micro"
     subnet_id     = aws_subnet.VPN_subnet.id
     vpc_security_group_ids      = [aws_security_group.vpn_sg.id]
+    iam_instance_profile = aws_iam_instance_profile.vpn_ssm_instance_profile.name
     source_dest_check = false # zodat de vpn server ook verkeer kan forwarden naar de database en monitoring server
     key_name = aws_key_pair.vpn_key.key_name
 
@@ -772,7 +807,13 @@ resource "aws_instance" "vpn_server" {
                 done
                 # 1. install wireguard-tools
                 dnf update -y
-                dnf install wireguard-tools iptables -y 
+                dnf install wireguard-tools iptables awscli -y 
+
+                WIREGUARD_PRIVATE_KEY=$(aws ssm get-parameter \
+                  --name /innovatech/wireguard/private-key \
+                  --with-decryption \
+                  --query Parameter.Value \
+                  --output text)
 
                 # 2. enable IP forwarding
                 echo "net.ipv4.ip_forward = 1" > /etc/sysctl.d/99-wireguard.conf
@@ -782,7 +823,7 @@ resource "aws_instance" "vpn_server" {
                 mkdir -p /etc/wireguard
                 cat <<'CONFIG' > /etc/wireguard/wg0.conf
                 [Interface]
-                PrivateKey = 8IsroUcmX1sd51Ifals/qHq/pKfFP8f3+Sq2IomoikA=
+                PrivateKey = $${WIREGUARD_PRIVATE_KEY}
                 Address = 10.10.4.2/32
                 ListenPort = 51820
 
@@ -845,6 +886,46 @@ resource "aws_key_pair" "vpn_key" {
   public_key = file("~/.ssh/innovatech-vpn.pub")
 }
 
+resource "aws_iam_role" "vpn_ssm_role" { # bedoelt om de vpn server toegang te geven tot de ssm parameter store zodat hij de private key kan ophalen
+  name = "vpn-ssm-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Principal = {
+        Service = "ec2.amazonaws.com"
+      }
+      Action = "sts:AssumeRole"
+    }]
+  })
+}
+
+resource "aws_iam_policy" "vpn_ssm_policy" {
+  name = "vpn-ssm-policy"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = [
+        "ssm:GetParameter"
+      ]
+      Resource = "arn:aws:ssm:eu-central-1:${data.aws_caller_identity.current.account_id}:parameter/innovatech/wireguard/private-key"
+    }]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "vpn_ssm_policy_attachment" {
+  role       = aws_iam_role.vpn_ssm_role.name
+  policy_arn = aws_iam_policy.vpn_ssm_policy.arn
+}
+
+resource "aws_iam_instance_profile" "vpn_ssm_instance_profile" {
+  name = "vpn-ssm-instance-profile"
+  role = aws_iam_role.vpn_ssm_role.name
+}
+
 # mysql database ----------------------------------------------------------------------------------------------
 resource "aws_db_instance" "mysql" {
   identifier        = "mysql-instance"
@@ -854,7 +935,7 @@ resource "aws_db_instance" "mysql" {
   storage_type      = "gp2"
   allocated_storage = 20
   username          = "admin"
-  password          = "password"
+  password          = data.aws_ssm_parameter.db_password.value
   db_name           = "innovatech"
   skip_final_snapshot = true # zodat als ik terraform destroy/delete doe dat echt alles weg is, in productie is dit natuurlijk niet slim
   vpc_security_group_ids = [aws_security_group.database_sg.id]
