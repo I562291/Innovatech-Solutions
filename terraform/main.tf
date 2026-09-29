@@ -700,12 +700,6 @@ root_block_device {
     }
 }
 
-variable "discord_webhook_url" {
-  description = "De Discord webhook URL voor Grafana alerting"
-  type        = string
-  sensitive   = true
-}
-
 resource "aws_iam_role" "prometheus_role" {
   name = "prometheus-role"
 

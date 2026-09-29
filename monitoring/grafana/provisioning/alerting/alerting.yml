@@ -7,7 +7,7 @@ contactPoints:
       - uid: discord-receiver
         type: discord
         settings:
-          url: https://discord.com/api/webhooks/1554530291228348437/wEN3wfGJkB9huaE_WKDRoQbPbZNuAiwYNHnX30ESg7idkMDizGRbRjFSVJmsg1W27NfY
+          url: https://discord.com/api/webhooks/1554604810156638260/pD0aU74GBegoTvm6j4DbUmbIDsqFA92TN048-cnjgxXD-WhkM_cxBL40J58QGgzoxpYW
         disableResolveMessage: false
 
 policies:

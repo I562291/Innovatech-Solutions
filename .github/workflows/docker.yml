@@ -30,6 +30,19 @@ jobs:
       - name: Build Docker image
         run: |
           docker build -t container_registry:latest .
+
+# # automatic app test
+#       - name: Test Docker container
+#         run: |
+#           docker run -d --name test-container -p 8080:80 container_registry:latest
+
+#           sleep 5
+
+#           curl --fail http://localhost:8080
+
+#           docker stop test-container
+#           docker rm test-container
+
 # Geven van tag aan Docker image
       - name: Tag Docker image
         run: |
