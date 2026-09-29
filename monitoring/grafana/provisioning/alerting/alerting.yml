@@ -1,0 +1,136 @@
+apiVersion: 1
+
+contactPoints:
+  - orgId: 1
+    name: discord-alerts
+    receivers:
+      - uid: discord-receiver
+        type: discord
+        settings:
+          url: https://discord.com/api/webhooks/1554530291228348437/wEN3wfGJkB9huaE_WKDRoQbPbZNuAiwYNHnX30ESg7idkMDizGRbRjFSVJmsg1W27NfY
+        disableResolveMessage: false
+
+policies:
+  - orgId: 1
+    receiver: discord-alerts
+    group_by: ['alertname']
+
+groups:
+  - orgId: 1
+    name: innovatech-alerts
+    folder: Innovatech
+    interval: 1m
+    rules:
+      # 1. High CPU Alert (> 80% voor 2 minuten)
+      - uid: alert-high-cpu
+        title: High CPU Usage
+        condition: B
+        for: 2m
+        data:
+          - refId: A
+            queryType: ''
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              editorMode: code
+              expr: 100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[1m])) * 100)
+              instant: true
+              range: false
+              refId: A
+          - refId: B
+            queryType: ''
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    params: [80]
+                    type: gt
+              refId: B
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage op {{ $labels.instance }}"
+          description: "CPU verbruik is boven de 80% voor meer dan 2 minuten."
+
+      # 2. Service Failure Alert (Server of container is DOWN)
+      - uid: alert-service-failure
+        title: Service Failure (Instance Down)
+        condition: B
+        for: 1m
+        data:
+          - refId: A
+            queryType: ''
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              editorMode: code
+              expr: up == bool 0
+              instant: true
+              range: false
+              refId: A
+          - refId: B
+            queryType: ''
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    params: [0]
+                    type: gt
+              refId: B
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service down: {{ $labels.instance }}"
+          description: "Target {{ $labels.instance }} ({{ $labels.job }}) is al 1 minuut onbereikbaar!"
+
+      # 3. Connectivity Issues Alert
+      - uid: alert-connectivity-issues
+        title: Connectivity Issues (No Inbound Traffic)
+        condition: B
+        for: 2m
+        data:
+          - refId: A
+            queryType: ''
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              editorMode: code
+              expr: rate(node_network_receive_bytes_total{device!~"lo|docker.*"}[1m]) == bool 0
+              instant: true
+              range: false
+              refId: A
+          - refId: B
+            queryType: ''
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    params: [0]
+                    type: gt
+              refId: B
+        labels:
+          severity: warning
+        annotations:
+          summary: "Netwerk connectivity probleem op {{ $labels.instance }}"
+          description: "Geen inkomend verkeer geregistreerd voor minstens 2 minuten."

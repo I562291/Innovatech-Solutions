@@ -690,6 +690,7 @@ root_block_device {
 
                 git clone https://github.com/I562291/Innovatech-Solutions.git /opt/innovatech
                 cd /opt/innovatech/monitoring
+                echo "DISCORD_WEBHOOK_URL=${var.discord_webhook_url}" > .env
                 docker compose up -d
                 EOF
     
@@ -698,6 +699,12 @@ root_block_device {
         Name    = "Monitoring Server"
         Project = "innovatech_solutions"
     }
+}
+
+variable "discord_webhook_url" {
+  description = "De Discord webhook URL voor Grafana alerting"
+  type        = string
+  sensitive   = true
 }
 
 resource "aws_iam_role" "prometheus_role" {
