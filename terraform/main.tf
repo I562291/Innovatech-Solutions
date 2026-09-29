@@ -276,6 +276,13 @@ resource "aws_security_group" "webserver_SG" {
     cidr_blocks = ["10.0.3.0/24"]
   }
 
+  ingress {
+    from_port = 22
+    to_port = 22
+    protocol = "tcp"
+    cidr_blocks = ["10.0.4.0/24"]
+  }
+
   egress { # Webserver -> Database
     from_port = 3306
     to_port = 3306
@@ -486,6 +493,8 @@ resource "aws_launch_template" "template_ec2" {
   name_prefix   = "template_ec2-"
   image_id      = data.aws_ssm_parameter.ec2_ami.value
   instance_type = "t3.micro" # t3.micro free tier. We can always expand ec2 during expansion.
+  key_name = aws_key_pair.vpn_key.key_name
+
   block_device_mappings {
       device_name = "/dev/xvda" # Dit is de standaard naam voor de root-schijf
       ebs {
