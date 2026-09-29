@@ -111,7 +111,7 @@ groups:
             datasourceUid: prometheus
             model:
               editorMode: code
-              expr: node_network_up{job="webservers",device!~"lo|docker.*"} == bool 0
+              expr: sum by (instance) (rate(node_network_receive_bytes_total{job="webservers",device!~"lo|docker.*"}[2m])) == 0
               instant: true
               range: false
               refId: A
@@ -133,4 +133,4 @@ groups:
           severity: warning
         annotations:
           summary: "Netwerk connectivity probleem op {{ $labels.instance }}"
-          description: "Geen inkomend verkeer geregistreerd voor minstens 2 minuten."
+          description: "Geen inkomend netwerkverkeer geregistreerd voor minstens 2 minuten."
