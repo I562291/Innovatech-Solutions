@@ -29,6 +29,6 @@ jobs:
 
       - name: Terraform apply
         # run: terraform apply -target=aws_ecr_repository.container_registry -auto-approve
-        # run: terraform apply -auto-approve
-        run: terraform apply -replace="aws_instance.vpn_server" -auto-approve
+        run: terraform apply -auto-approve
+        # run: terraform apply -replace="aws_instance.vpn_server" -auto-approve
         # run: terraform apply -replace="aws_instance.monitoring_server" -auto-approve
