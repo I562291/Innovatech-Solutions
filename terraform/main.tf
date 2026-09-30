@@ -702,6 +702,7 @@ resource "aws_instance" "monitoring_server" {
     instance_type = "t3.micro"
     subnet_id     = aws_subnet.Monitoring_subnet.id
     vpc_security_group_ids      = [aws_security_group.monitoring_sg.id]
+    key_name = aws_key_pair.vpn_key.key_name
 
 root_block_device {
     volume_size = 8
