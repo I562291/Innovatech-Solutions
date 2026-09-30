@@ -1,0 +1,92 @@
+name: Deploy application
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: innovatech-production
+  cancel-in-progress: false
+
+jobs:
+  terraform:
+    name: Terraform deploy
+    runs-on: self-hosted
+
+    defaults:
+      run:
+        working-directory: terraform
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Terraform init
+        run: terraform init
+
+      - name: Terraform validate
+        run: terraform validate
+
+      - name: Terraform plan
+        run: terraform plan
+
+      - name: Terraform apply
+        run: terraform apply -auto-approve
+
+  test:
+    name: Application smoke test
+    needs: terraform
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build test image
+        run: docker build -t innovatech-test:latest .
+
+      - name: Start test container
+        run: docker run -d --name innovatech-test -p 8080:80 innovatech-test:latest
+
+      - name: Test home page
+        run: curl --fail --retry 30 --retry-delay 1 --retry-connrefused http://localhost:8080/
+
+      - name: Remove test container
+        if: always()
+        run: docker rm -f innovatech-test
+
+  docker:
+    name: Push and deploy application
+    needs: test
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Login to ECR
+        run: |
+          aws ecr get-login-password --region eu-central-1 \
+          | docker login --username AWS --password-stdin 050670385147.dkr.ecr.eu-central-1.amazonaws.com
+
+      - name: Build application image
+        run: docker build -t container_registry:latest .
+
+      - name: Tag application image
+        run: docker tag container_registry:latest 050670385147.dkr.ecr.eu-central-1.amazonaws.com/container_registry:latest
+
+      - name: Push application image
+        run: docker push 050670385147.dkr.ecr.eu-central-1.amazonaws.com/container_registry:latest
+
+      - name: Refresh webserver instances
+        run: |
+          aws autoscaling start-instance-refresh \
+            --auto-scaling-group-name webserver-asg \
+            --strategy Rolling \
+            --preferences '{
+              "MinHealthyPercentage": 50,
+              "InstanceWarmup": 60,
+              "SkipMatching": false
+            }'
