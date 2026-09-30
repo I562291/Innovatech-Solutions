@@ -821,7 +821,7 @@ resource "aws_instance" "vpn_server" {
 
                 # 3. configure wireguard
                 mkdir -p /etc/wireguard
-                cat <<'CONFIG' > /etc/wireguard/wg0.conf
+                cat << CONFIG > /etc/wireguard/wg0.conf
                 [Interface]
                 PrivateKey = $${WIREGUARD_PRIVATE_KEY}
                 Address = 10.10.4.2/32
