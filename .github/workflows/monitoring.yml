@@ -1,4 +1,4 @@
-name: Terraform test
+name: Monitoring deploy
 
 # on:
 #   push:
@@ -25,10 +25,7 @@ jobs:
         run: terraform validate
 
       - name: Terraform plan
-        run: terraform plan
+        run: terraform plan -replace="aws_instance.monitoring_server"
 
       - name: Terraform apply
-        # run: terraform apply -target=aws_ecr_repository.container_registry -auto-approve
-        run: terraform apply -auto-approve
-        # run: terraform apply -replace="aws_instance.vpn_server" -auto-approve
-        # run: terraform apply -replace="aws_instance.monitoring_server" -auto-approve
+        run: terraform apply -replace="aws_instance.monitoring_server" -auto-approve
