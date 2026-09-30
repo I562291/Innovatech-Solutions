@@ -4,7 +4,7 @@ provider "aws" {
 
 data "aws_caller_identity" "current" {}
 
-data "aws_ssm_parameter" "db_password" {
+data "aws_ssm_parameter" "db_password" { # zodat terraform de database zijn wachtwoord kan geven tijdens deployment
   name            = "/innovatech/db/password"
   with_decryption = true
 }
