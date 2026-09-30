@@ -417,6 +417,13 @@ resource "aws_security_group" "monitoring_sg" {
     cidr_blocks = ["10.0.4.0/24"]
   }
 
+  ingress {
+    from_port = 22
+    to_port = 22
+    protocol = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
   egress { # monitoring -> Internet (VIA NAT GATEWAY)
     from_port   = 0
     to_port     = 0
