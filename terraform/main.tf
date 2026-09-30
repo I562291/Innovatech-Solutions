@@ -510,6 +510,10 @@ resource "aws_launch_template" "template_ec2" {
       }
   }
 
+  monitoring {
+  enabled = true
+}
+
   network_interfaces {
     associate_public_ip_address = false 
     security_groups             = [aws_security_group.webserver_SG.id]
