@@ -335,15 +335,19 @@ resource "aws_route53_record" "grafana_record" {
   zone_id = aws_route53_zone.internal_dns_zone.id
   name    = "grafana"
   type    = "A" # ipv4
-  ttl     = 300
+  ttl     = 60
   records = [aws_instance.monitoring_server.private_ip]
+
+  lifecycle {
+    ignore_changes = [records]
+  }
 }
 
 # resource "aws_route53_record" "soar_record" {
 #   zone_id = aws_route53_zone.internal_dns_zone.id
 #   name    = "soar"
 #   type    = "A" # ipv4
-#   ttl     = 300
+#   ttl     = 60
 #   records = [aws_instance.soar_server.private_ip]
 # }
 
@@ -351,15 +355,19 @@ resource "aws_route53_record" "vpn_record" {
   zone_id = aws_route53_zone.internal_dns_zone.id
   name    = "vpn"
   type    = "A" # ipv4
-  ttl     = 300
+  ttl     = 60
   records = [aws_instance.vpn_server.private_ip]
+
+  lifecycle {
+    ignore_changes = [records]
+  }
 }
 
 resource "aws_route53_record" "mysql_record" {
   zone_id = aws_route53_zone.internal_dns_zone.zone_id
   name    = "mysql"
   type    = "CNAME" # CNAME omdat de database een dynamisch IP heeft en we de DNS naam van de database willen gebruiken. CNAME is eigenlijk een domein naam van een domein naam.
-  ttl     = 300
+  ttl     = 60
   records = [aws_db_instance.mysql.address]
 }
 
@@ -866,6 +874,30 @@ root_block_device {
                 printf 'DISCORD_WEBHOOK_URL=%s\n' "$DISCORD_WEBHOOK_URL" > .env
                 chmod 600 .env
                 docker compose up -d
+
+                TOKEN=$(curl -sS -X PUT http://169.254.169.254/latest/api/token \
+                  -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
+                PRIVATE_IP=$(curl -sS \
+                  -H "X-aws-ec2-metadata-token: $TOKEN" \
+                  http://169.254.169.254/latest/meta-data/local-ipv4)
+                cat > /tmp/grafana-dns-change.json <<DNS
+                {
+                  "Comment": "Update Grafana record to the current monitoring instance",
+                  "Changes": [{
+                    "Action": "UPSERT",
+                    "ResourceRecordSet": {
+                      "Name": "grafana.innovatech.internal",
+                      "Type": "A",
+                      "TTL": 60,
+                      "ResourceRecords": [{"Value": "$PRIVATE_IP"}]
+                    }
+                  }]
+                }
+                DNS
+                aws route53 change-resource-record-sets \
+                  --hosted-zone-id ${aws_route53_zone.internal_dns_zone.zone_id} \
+                  --change-batch file:///tmp/grafana-dns-change.json \
+                  --region eu-central-1
                 EOF
     
     iam_instance_profile = aws_iam_instance_profile.prometheus_ec2_instance_profile.name
@@ -917,6 +949,13 @@ resource "aws_iam_policy" "prometheus_policy" {
           "ssm:GetParameter"
         ]
         Resource = "arn:aws:ssm:eu-central-1:${data.aws_caller_identity.current.account_id}:parameter/innovatech/discord/webhook"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "route53:ChangeResourceRecordSets"
+        ]
+        Resource = aws_route53_zone.internal_dns_zone.arn
       }
     ]
   })
@@ -985,6 +1024,30 @@ resource "aws_instance" "vpn_server" {
 
                 chmod 600 /etc/wireguard/wg0.conf
                 systemctl enable --now wg-quick@wg0
+
+                TOKEN=$(curl -sS -X PUT http://169.254.169.254/latest/api/token \
+                  -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
+                PRIVATE_IP=$(curl -sS \
+                  -H "X-aws-ec2-metadata-token: $TOKEN" \
+                  http://169.254.169.254/latest/meta-data/local-ipv4)
+                cat > /tmp/vpn-dns-change.json <<DNS
+                {
+                  "Comment": "Update VPN record to the current VPN instance",
+                  "Changes": [{
+                    "Action": "UPSERT",
+                    "ResourceRecordSet": {
+                      "Name": "vpn.innovatech.internal",
+                      "Type": "A",
+                      "TTL": 60,
+                      "ResourceRecords": [{"Value": "$PRIVATE_IP"}]
+                    }
+                  }]
+                }
+                DNS
+                aws route53 change-resource-record-sets \
+                  --hosted-zone-id ${aws_route53_zone.internal_dns_zone.zone_id} \
+                  --change-batch file:///tmp/vpn-dns-change.json \
+                  --region eu-central-1
 
                 # node exporter prometheus installeren
                 dnf install -y wget
@@ -1060,6 +1123,12 @@ resource "aws_iam_policy" "vpn_ssm_policy" {
         "ssm:GetParameter"
       ]
       Resource = "arn:aws:ssm:eu-central-1:${data.aws_caller_identity.current.account_id}:parameter/innovatech/wireguard/private-key"
+    }, {
+      Effect = "Allow"
+      Action = [
+        "route53:ChangeResourceRecordSets"
+      ]
+      Resource = aws_route53_zone.internal_dns_zone.arn
     }]
   })
 }
