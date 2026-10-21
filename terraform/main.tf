@@ -117,6 +117,28 @@ resource "aws_subnet" "Database_subnet2" {
   }
 }
 
+resource "aws_subnet" "internal_DNS_subnet1" {
+  vpc_id            = aws_vpc.vpc_innovatech_solutions.id
+  cidr_block        = "10.0.9.0/24"
+  availability_zone = "eu-central-1a"
+
+  tags = {
+    Project = "innovatech_solutions"
+    Name    = "internal_DNS_subnet1"
+  }
+}
+
+resource "aws_subnet" "internal_DNS_subnet2" {
+  vpc_id            = aws_vpc.vpc_innovatech_solutions.id
+  cidr_block        = "10.0.10.0/24"
+  availability_zone = "eu-central-1b"
+
+  tags = {
+    Project = "innovatech_solutions"
+    Name    = "internal_DNS_subnet2"
+  }
+}
+
 # Routing
 resource "aws_internet_gateway" "IGW" {
   vpc_id = aws_vpc.vpc_innovatech_solutions.id
@@ -225,6 +247,120 @@ resource "aws_route_table_association" "Database_subnet1_association" {
 resource "aws_route_table_association" "Database_subnet2_association" {
   subnet_id      = aws_subnet.Database_subnet2.id
   route_table_id = aws_route_table.isolated_route.id
+}
+
+resource "aws_route_table_association" "internal_DNS_subnet1_association" {
+  subnet_id      = aws_subnet.internal_DNS_subnet1.id
+  route_table_id = aws_route_table.isolated_route.id
+}
+
+resource "aws_route_table_association" "internal_DNS_subnet2_association" {
+  subnet_id      = aws_subnet.internal_DNS_subnet2.id
+  route_table_id = aws_route_table.isolated_route.id
+}
+
+
+# Internal DNS -------------------------------------------------------------------------------------------
+resource "aws_security_group" "resolver_endpoint_sg" {
+  name        = "resolver-endpoint-sg"
+  description = "Allow DNS queries from on-premises networks"
+  vpc_id      = aws_vpc.vpc_innovatech_solutions.id
+
+  ingress {
+    description = "DNS over UDP from on-premises"
+    from_port   = 53
+    to_port     = 53
+    protocol    = "udp"
+    cidr_blocks = ["192.168.1.0/24", "192.168.2.0/24", "192.168.3.0/24"]
+  }
+
+  ingress {
+    description = "DNS over TCP from on-premises"
+    from_port   = 53
+    to_port     = 53
+    protocol    = "tcp"
+    cidr_blocks = ["192.168.1.0/24", "192.168.2.0/24", "192.168.3.0/24"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Project = "innovatech_solutions"
+    Name    = "resolver_endpoint_sg"
+  }
+}
+
+resource "aws_route53_zone" "internal_dns_zone" {
+  name = "innovatech.internal"
+
+  vpc {
+    vpc_id = aws_vpc.vpc_innovatech_solutions.id
+  }
+
+  # Private DNS zone for Innovatech internal services
+
+  tags = {
+    Project = "innovatech_solutions"
+    Name    = "innovatech.internal"
+  }
+}
+
+resource "aws_route53_resolver_endpoint" "resolver_inbound_endpoint" {
+  name               = "innovatech-inbound-resolver"
+  direction          = "INBOUND"
+  security_group_ids = [aws_security_group.resolver_endpoint_sg.id]
+
+  ip_address {
+    subnet_id = aws_subnet.internal_DNS_subnet1.id
+    ip        = "10.0.9.10"
+  }
+
+  ip_address {
+    subnet_id = aws_subnet.internal_DNS_subnet2.id
+    ip        = "10.0.10.10"
+  }
+
+  tags = {
+    Project = "innovatech_solutions"
+    Name    = "innovatech-inbound-resolver"
+  }
+}
+
+resource "aws_route53_record" "grafana_record" {
+  zone_id = aws_route53_zone.internal_dns_zone.id
+  name    = "grafana"
+  type    = "A" # ipv4
+  ttl     = 300
+  records = [aws_instance.monitoring_server.private_ip]
+}
+
+# resource "aws_route53_record" "soar_record" {
+#   zone_id = aws_route53_zone.internal_dns_zone.id
+#   name    = "soar"
+#   type    = "A" # ipv4
+#   ttl     = 300
+#   records = [aws_instance.soar_server.private_ip]
+# }
+
+resource "aws_route53_record" "vpn_record" {
+  zone_id = aws_route53_zone.internal_dns_zone.id
+  name    = "vpn"
+  type    = "A" # ipv4
+  ttl     = 300
+  records = [aws_instance.vpn_server.private_ip]
+}
+
+resource "aws_route53_record" "mysql_record" {
+  zone_id = aws_route53_zone.internal_dns_zone.zone_id
+  name    = "mysql"
+  type    = "CNAME" # CNAME omdat de database een dynamisch IP heeft en we de DNS naam van de database willen gebruiken. CNAME is eigenlijk een domein naam van een domein naam.
+  ttl     = 300
+  records = [aws_db_instance.mysql.address]
 }
 
 # Security Groups
