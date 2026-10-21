@@ -942,7 +942,7 @@ resource "aws_iam_instance_profile" "vpn_ssm_instance_profile" {
 resource "aws_db_instance" "mysql" {
   identifier        = "mysql-instance"
   engine            = "mysql"
-  engine_version    = "8.0"
+  engine_version    = "8.4"
   instance_class    = "db.t3.micro"
   storage_type      = "gp2"
   allocated_storage = 20
