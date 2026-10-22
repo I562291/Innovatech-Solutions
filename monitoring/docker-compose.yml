@@ -9,6 +9,30 @@ services:
       - prometheus-data:/prometheus # Prometheus volume
     restart: unless-stopped
 
+  loki:
+    image: grafana/loki:latest
+    container_name: loki
+    command: -config.file=/etc/loki/config.yml # Loki configuration file
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./loki/config.yml:/etc/loki/config.yml:ro # we mounten de config file van loki in de container
+      - loki-data:/loki # Loki volume
+    restart: unless-stopped
+
+  alloy:
+    image: grafana/alloy:latest
+    container_name: alloy
+    command: run --server.http.listen-addr=0.0.0.0:12345 /etc/alloy/config.alloy # Alloy configuration file
+    ports:
+      - "12345:12345"
+    volumes:
+      - ./alloy/config.alloy:/etc/alloy/config.alloy:ro # we mounten de config file van alloy in de container
+      - alloy-data:/var/lib/alloy
+    depends_on:
+      - loki
+    restart: unless-stopped
+
   grafana:
     image: grafana/grafana:latest
     container_name: grafana
@@ -17,11 +41,13 @@ services:
     environment:
       DISCORD_WEBHOOK_URL: ${DISCORD_WEBHOOK_URL}
     volumes:
-      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/provisioning:/etc/grafana/provisioning # we mounten de provisioning files van grafana in de container
       - ./grafana/dashboards:/var/lib/grafana/dashboards
       - grafana-data:/var/lib/grafana # Grafana volume
     restart: unless-stopped
 
 volumes:
   prometheus-data:
+  loki-data:
+  alloy-data:
   grafana-data:

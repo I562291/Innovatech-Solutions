@@ -1,0 +1,25 @@
+auth_enabled: false
+
+server:
+  http_listen_port: 3100
+
+common:
+  path_prefix: /loki # dit is de map waar alle data wordt opgeslagen
+  replication_factor: 1 # dit is om te zorgen dat er maar 1 kopie van de logs is, anders zou het 2x zoveel opslag kosten
+  ring:
+    kvstore:
+      store: inmemory
+  storage:
+    filesystem:
+      chunks_directory: /loki/chunks
+      rules_directory: /loki/rules
+
+schema_config:
+  configs:
+    - from: 2024-01-01
+      store: tsdb
+      object_store: filesystem
+      schema: v13
+      index:
+        prefix: index_
+        period: 24h
