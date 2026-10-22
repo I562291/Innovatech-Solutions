@@ -331,18 +331,6 @@ resource "aws_route53_resolver_endpoint" "resolver_inbound_endpoint" {
   }
 }
 
-resource "aws_route53_record" "grafana_record" {
-  zone_id = aws_route53_zone.internal_dns_zone.id
-  name    = "grafana"
-  type    = "A" # ipv4
-  ttl     = 60
-  records = [aws_instance.monitoring_server.private_ip]
-
-  lifecycle {
-    ignore_changes = [records]
-  }
-}
-
 # resource "aws_route53_record" "soar_record" {
 #   zone_id = aws_route53_zone.internal_dns_zone.id
 #   name    = "soar"
@@ -350,18 +338,6 @@ resource "aws_route53_record" "grafana_record" {
 #   ttl     = 60
 #   records = [aws_instance.soar_server.private_ip]
 # }
-
-resource "aws_route53_record" "vpn_record" {
-  zone_id = aws_route53_zone.internal_dns_zone.id
-  name    = "vpn"
-  type    = "A" # ipv4
-  ttl     = 60
-  records = [aws_instance.vpn_server.private_ip]
-
-  lifecycle {
-    ignore_changes = [records]
-  }
-}
 
 resource "aws_route53_record" "mysql_record" {
   zone_id = aws_route53_zone.internal_dns_zone.zone_id
@@ -841,20 +817,43 @@ resource "aws_iam_instance_profile" "ec2_instance_profile" {
 }
 
 # Monitoring ----------------------------------------------------------------------------------------------
-resource "aws_instance" "monitoring_server" {
-    ami           = data.aws_ssm_parameter.ec2_ami.value
-    instance_type = "t3.micro"
-    subnet_id     = aws_subnet.Monitoring_subnet.id
-    vpc_security_group_ids      = [aws_security_group.monitoring_sg.id]
-    key_name = aws_key_pair.vpn_key.key_name
+resource "aws_autoscaling_group" "monitoring_asg" {
+  name                = "monitoring-asg"
+  vpc_zone_identifier = [aws_subnet.Monitoring_subnet.id]
+  desired_capacity    = 1
+  max_size            = 1
+  min_size            = 1
+  force_delete        = true # kijkt niet of er eerst running instances zijn, maar verwijdert ze direct
 
-root_block_device {
-    volume_size = 8
-    volume_type = "gp2"
+  health_check_type         = "EC2"
+  health_check_grace_period = 420
+
+  launch_template { # hier vertellen we de autoscaler welke launch template hij moet gebruiken
+    id      = aws_launch_template.monitoring_ec2.id
+    version = "$Latest"
+  }
+}
+
+resource "aws_launch_template" "monitoring_ec2" {
+  name_prefix   = "monitoring_ec2-"
+  image_id      = data.aws_ssm_parameter.ec2_ami.value
+  instance_type = "t3.micro" # t3.micro free tier. We can always expand ec2 during expansion.
+  key_name = aws_key_pair.vpn_key.key_name
+  update_default_version = true
+
+  iam_instance_profile {
+    arn = aws_iam_instance_profile.prometheus_ec2_instance_profile.arn
   }
 
-    user_data = <<-EOF
-                #!/bin/bash
+  block_device_mappings {
+      device_name = "/dev/xvda" # Dit is de standaard naam voor de root-schijf
+      ebs {
+        volume_size = 8
+        volume_type = "gp2"
+      }
+  }
+      user_data = base64encode(<<-EOF
+                    #!/bin/bash
                 dnf update -y
                 dnf install -y docker git awscli
                 systemctl enable docker
@@ -873,7 +872,27 @@ root_block_device {
                   --output text)
                 printf 'DISCORD_WEBHOOK_URL=%s\n' "$DISCORD_WEBHOOK_URL" > .env
                 chmod 600 .env
-                docker compose up -d
+
+                cat > /etc/systemd/system/monitoring-stack.service <<'SERVICE'
+                [Unit]
+                Description=Innovatech monitoring Docker Compose stack
+                Requires=docker.service
+                After=docker.service
+
+                [Service]
+                Type=simple
+                WorkingDirectory=/opt/innovatech/monitoring
+                ExecStart=/usr/local/lib/docker/cli-plugins/docker-compose up
+                ExecStop=/usr/local/lib/docker/cli-plugins/docker-compose stop
+                Restart=always
+                RestartSec=10
+
+                [Install]
+                WantedBy=multi-user.target
+                SERVICE
+
+                systemctl daemon-reload
+                systemctl enable --now monitoring-stack.service
 
                 TOKEN=$(curl -sS -X PUT http://169.254.169.254/latest/api/token \
                   -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
@@ -899,13 +918,20 @@ root_block_device {
                   --change-batch file:///tmp/grafana-dns-change.json \
                   --region eu-central-1
                 EOF
-    
-    iam_instance_profile = aws_iam_instance_profile.prometheus_ec2_instance_profile.name
+  )
+
+  vpc_security_group_ids = [aws_security_group.monitoring_sg.id]
+
+  tag_specifications {
+    resource_type = "instance"
+
     tags = {
         Name    = "Monitoring Server"
         Project = "innovatech_solutions"
     }
+  }
 }
+
 
 resource "aws_iam_role" "prometheus_role" {
   name = "prometheus-role"
@@ -972,22 +998,65 @@ resource "aws_iam_instance_profile" "prometheus_ec2_instance_profile" {
 }
 
 # vpn server ----------------------------------------------------------------------------------------------
-resource "aws_instance" "vpn_server" {
-    ami           = data.aws_ssm_parameter.ec2_ami.value
-    instance_type = "t3.micro"
-    subnet_id     = aws_subnet.VPN_subnet.id
-    vpc_security_group_ids      = [aws_security_group.vpn_sg.id]
-    iam_instance_profile = aws_iam_instance_profile.vpn_ssm_instance_profile.name
-    source_dest_check = false # zodat de vpn server ook verkeer kan forwarden naar de database en monitoring server
-    key_name = aws_key_pair.vpn_key.key_name
+resource "aws_autoscaling_group" "vpn_asg" {
+  name                = "vpn-asg"
+  vpc_zone_identifier = [aws_subnet.VPN_subnet.id]
+  desired_capacity    = 1
+  max_size            = 1
+  min_size            = 1
+  force_delete        = true
 
-    root_block_device {
-    volume_size = 8
-    volume_type = "gp2"
+  health_check_type         = "EC2"
+  health_check_grace_period = 420
+
+  launch_template {
+    id      = aws_launch_template.vpn_ec2.id
+    version = "$Latest"
+  }
+}
+
+resource "aws_launch_template" "vpn_ec2" {
+  name_prefix   = "vpn_ec2-"
+  image_id      = data.aws_ssm_parameter.ec2_ami.value
+  instance_type = "t3.micro"
+  key_name      = aws_key_pair.vpn_key.key_name
+  update_default_version = true
+
+  iam_instance_profile {
+    arn = aws_iam_instance_profile.vpn_ssm_instance_profile.arn
   }
 
-    user_data = <<-EOF
+  network_interfaces {
+    associate_public_ip_address = false
+    security_groups             = [aws_security_group.vpn_sg.id]
+    delete_on_termination       = true
+  }
+
+  block_device_mappings {
+    device_name = "/dev/xvda"
+    ebs {
+      volume_size = 8
+      volume_type = "gp2"
+    }
+  }
+
+  user_data = base64encode(<<-EOF
                 #!/bin/bash
+                TOKEN=$(curl -sS -X PUT http://169.254.169.254/latest/api/token \
+                  -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
+                INSTANCE_ID=$(curl -sS \
+                  -H "X-aws-ec2-metadata-token: $TOKEN" \
+                  http://169.254.169.254/latest/meta-data/instance-id)
+                aws ec2 modify-instance-attribute \
+                  --instance-id "$INSTANCE_ID" \
+                  --no-source-dest-check \
+                  --region eu-central-1
+                aws ec2 associate-address \
+                  --instance-id "$INSTANCE_ID" \
+                  --allocation-id ${data.aws_eip.vpn_static_ip.id} \
+                  --allow-reassociation \
+                  --region eu-central-1
+
                 # Wacht tot Elastic IP geassocieerd is en internet werkt
                 until ping -c 1 8.8.8.8 &>/dev/null; do
                     sleep 3
@@ -1023,6 +1092,12 @@ resource "aws_instance" "vpn_server" {
                 CONFIG
 
                 chmod 600 /etc/wireguard/wg0.conf
+                mkdir -p /etc/systemd/system/wg-quick@wg0.service.d
+                cat <<'RESTART' > /etc/systemd/system/wg-quick@wg0.service.d/restart.conf
+                [Service]
+                Restart=always
+                RestartSec=10
+                RESTART
                 systemctl enable --now wg-quick@wg0
 
                 TOKEN=$(curl -sS -X PUT http://169.254.169.254/latest/api/token \
@@ -1073,10 +1148,15 @@ resource "aws_instance" "vpn_server" {
                 systemctl daemon-reload
                 systemctl enable --now node_exporter
                 EOF
-  tags = {
-    Project = "innovatech_solutions"
-    Name    = "VPN Server"
-    Role    = "vpn"
+  )
+
+  tag_specifications {
+    resource_type = "instance"
+    tags = {
+      Project = "innovatech_solutions"
+      Name    = "VPN Server"
+      Role    = "vpn"
+    }
   }
 }
 
@@ -1084,12 +1164,6 @@ data "aws_eip" "vpn_static_ip" {
   tags = {
     Name = "vpn_static_ip"
   }
-}
-
-# Koppel hem aan je vpn_server EC2
-resource "aws_eip_association" "vpn_eip_association" {
-  instance_id   = aws_instance.vpn_server.id
-  allocation_id = data.aws_eip.vpn_static_ip.id
 }
 
 resource "aws_key_pair" "vpn_key" {
@@ -1129,6 +1203,14 @@ resource "aws_iam_policy" "vpn_ssm_policy" {
         "route53:ChangeResourceRecordSets"
       ]
       Resource = aws_route53_zone.internal_dns_zone.arn
+    }, {
+      Effect = "Allow"
+      Action = [ # bedoelt om de vpn server een elastic ip te geven zodat hij altijd hetzelfde ip heeft
+        "ec2:AssociateAddress",
+        "ec2:ModifyInstanceAttribute",
+        "ec2:DescribeInstances"
+      ]
+      Resource = "*"
     }]
   })
 }
