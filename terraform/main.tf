@@ -537,11 +537,18 @@ resource "aws_security_group" "monitoring_sg" {
     cidr_blocks = ["10.0.4.0/24"]
   }
 
-  ingress {
+  ingress { # zodat ik via de VPN server kan inloggen op de monitoring server voor onderhoud als dat nodig is
     from_port = 22
     to_port = 22
     protocol = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = ["192.168.1.0/24", "10.0.4.0/24"]
+  }
+
+  ingress {
+    from_port = 514
+    to_port = 514
+    protocol = "tcp"
+    cidr_blocks = ["192.168.1.0/24", "10.0.4.0/24", "10.0.5.0/24", "10.0.6.0/24"] # logs from webservers, vpn server and on premise environment
   }
 
   egress { # monitoring -> Internet (VIA NAT GATEWAY)

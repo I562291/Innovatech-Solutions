@@ -26,6 +26,7 @@ services:
     command: run --server.http.listen-addr=0.0.0.0:12345 /etc/alloy/config.alloy # Alloy configuration file
     ports:
       - "12345:12345"
+      - "514:514/tcp" # we forwarden de TCP poort voor syslog
     volumes:
       - ./alloy/config.alloy:/etc/alloy/config.alloy:ro # we mounten de config file van alloy in de container
       - alloy-data:/var/lib/alloy

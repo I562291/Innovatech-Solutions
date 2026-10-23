@@ -1,1 +1,14 @@
-# Log sources for pfSense and workstations will be added here.
+loki.source.syslog "tcp_syslog" {
+  listener {
+    address  = "0.0.0.0:514"
+    protocol = "tcp"
+  }
+
+  forward_to = [loki.write.syslog.receiver]
+}
+
+loki.write "syslog" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}
