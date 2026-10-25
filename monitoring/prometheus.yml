@@ -25,3 +25,13 @@ scrape_configs:
       - source_labels: [__meta_ec2_tag_Role]
         regex: vpn
         action: keep
+
+  - job_name: "soar"
+    ec2_sd_configs:
+      - region: eu-central-1
+        port: 9100
+
+    relabel_configs:
+      - source_labels: [__meta_ec2_tag_Role]
+        regex: soar
+        action: keep

@@ -563,6 +563,45 @@ resource "aws_security_group" "monitoring_sg" {
   }
 }
 
+resource "aws_security_group" "soar_sg" {
+  vpc_id = aws_vpc.vpc_innovatech_solutions.id
+
+  ingress {
+    from_port   = 9100
+    to_port     = 9100
+    protocol    = "tcp"
+    cidr_blocks = ["10.0.3.0/24"]
+  }
+
+  ingress {
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["10.0.3.0/24"]
+  }
+
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["10.0.3.0/24"]
+  }
+
+  ingress {
+    from_port   = 8080
+    to_port     = 8080
+    protocol    = "tcp"
+    cidr_blocks = ["10.0.3.0/24"]
+  }
+
+  egress { # zodat de SOAR server overal naar toe kan gaan voor updates en API calls
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
 # Services
 # ALB ------------------------------------------------------------------------------------------------
 resource "aws_lb" "ALB" {
@@ -747,6 +786,10 @@ resource "aws_autoscaling_group" "webserver_asg" {
 # Een container registry waar ik mijn image in opsla.
 resource "aws_ecr_repository" "container_registry" {
   name                 = "container_registry"
+}
+
+resource "aws_ecr_repository" "soar_container_registry" {
+  name                 = "soar_container_registry"
 }
 
 resource "aws_autoscaling_policy" "scaling_policy" {
@@ -1165,6 +1208,190 @@ resource "aws_launch_template" "vpn_ec2" {
       Role    = "vpn"
     }
   }
+}
+
+# soar system ----------------------------------------------------------------------------------------------
+resource "aws_autoscaling_group" "soar_asg" {
+  name                = "soar-asg"
+  vpc_zone_identifier = [aws_subnet.Monitoring_subnet.id]
+  desired_capacity    = 1
+  max_size            = 1
+  min_size            = 1
+  force_delete        = true
+
+  health_check_type         = "EC2"
+  health_check_grace_period = 420
+
+  launch_template {
+    id      = aws_launch_template.soar_ec2.id
+    version = "$Latest"
+  }
+}
+
+resource "aws_launch_template" "soar_ec2" {
+  name_prefix   = "soar_ec2-"
+  image_id      = data.aws_ssm_parameter.ec2_ami.value
+  instance_type = "t3.micro"
+  key_name      = aws_key_pair.vpn_key.key_name
+  update_default_version = true
+
+  iam_instance_profile {
+    arn = aws_iam_instance_profile.soar_instance_profile.arn
+  }
+
+  vpc_security_group_ids = [aws_security_group.soar_sg.id]
+
+  block_device_mappings {
+    device_name = "/dev/xvda"
+    ebs {
+      volume_size = 8
+      volume_type = "gp2"
+    }
+  }
+
+  user_data = base64encode(<<-EOF
+    #!/bin/bash
+    set -e
+
+    dnf update -y
+    dnf install -y docker awscli curl
+    systemctl enable --now docker
+
+    AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+    ECR_REGISTRY="$AWS_ACCOUNT_ID.dkr.ecr.eu-central-1.amazonaws.com"
+    aws ecr get-login-password --region eu-central-1 \
+      | docker login --username AWS --password-stdin "$ECR_REGISTRY"
+    docker pull "$ECR_REGISTRY/soar_container_registry:latest"
+
+    TOKEN=$(curl -sS -X PUT http://169.254.169.254/latest/api/token \
+      -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
+    PRIVATE_IP=$(curl -sS \
+      -H "X-aws-ec2-metadata-token: $TOKEN" \
+      http://169.254.169.254/latest/meta-data/local-ipv4)
+    cat > /tmp/soar-dns-change.json <<DNS
+    {
+      "Comment": "Update SOAR record to the current SOAR instance",
+      "Changes": [{
+        "Action": "UPSERT",
+        "ResourceRecordSet": {
+          "Name": "soar.innovatech.internal",
+          "Type": "A",
+          "TTL": 60,
+          "ResourceRecords": [{"Value": "$PRIVATE_IP"}]
+        }
+      }]
+    }
+    DNS
+    aws route53 change-resource-record-sets \
+      --hosted-zone-id ${aws_route53_zone.internal_dns_zone.zone_id} \
+      --change-batch file:///tmp/soar-dns-change.json \
+      --region eu-central-1
+
+    dnf install -y wget
+    cd /tmp
+    wget https://github.com/prometheus/node_exporter/releases/download/v1.9.1/node_exporter-1.9.1.linux-amd64.tar.gz
+    tar -xzf node_exporter-1.9.1.linux-amd64.tar.gz
+    mv node_exporter-1.9.1.linux-amd64/node_exporter /usr/local/bin/node_exporter
+
+    cat > /etc/systemd/system/node_exporter.service <<'NODEEXPORTER'
+    [Unit]
+    Description=Prometheus Node Exporter
+    After=network.target
+
+    [Service]
+    ExecStart=/usr/local/bin/node_exporter
+    Restart=always
+
+    [Install]
+    WantedBy=multi-user.target
+    NODEEXPORTER
+
+    systemctl daemon-reload
+    systemctl enable --now node_exporter
+
+    cat > /etc/systemd/system/soar.service <<SERVICE
+    [Unit]
+    Description=Innovatech SOAR
+    After=docker.service
+    Requires=docker.service
+
+    [Service]
+    Type=simple
+    ExecStart=/usr/bin/docker run --name soar --rm --init -p 8080:8080 --restart=no "$ECR_REGISTRY/soar_container_registry:latest"
+    ExecStop=/usr/bin/docker stop soar
+    Restart=always
+    RestartSec=10
+
+    [Install]
+    WantedBy=multi-user.target
+    SERVICE
+
+    systemctl daemon-reload
+    systemctl enable --now soar.service
+    EOF
+  )
+
+  tag_specifications {
+    resource_type = "instance"
+    tags = {
+      Project = "innovatech_solutions"
+      Name    = "SOAR Server"
+      Role    = "soar"
+    }
+  }
+}
+
+resource "aws_iam_role" "soar_role" {
+  name = "soar-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Principal = {
+        Service = "ec2.amazonaws.com"
+      }
+      Action = "sts:AssumeRole"
+    }]
+  })
+}
+
+resource "aws_iam_policy" "soar_policy" {
+  name = "soar-policy"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["route53:ChangeResourceRecordSets"]
+        Resource = aws_route53_zone.internal_dns_zone.arn
+      },
+      {
+        Effect = "Allow" # dit is nodig zodat de SOAR server de container kan pullen uit de ECR registry
+        Action = [
+          "ecr:GetAuthorizationToken",
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:BatchGetImage"
+        ]
+        Resource = [
+          aws_ecr_repository.soar_container_registry.arn,
+          "*"
+        ]
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "soar_policy_attachment" {
+  role       = aws_iam_role.soar_role.name
+  policy_arn = aws_iam_policy.soar_policy.arn
+}
+
+resource "aws_iam_instance_profile" "soar_instance_profile" {
+  name = "soar-instance-profile"
+  role = aws_iam_role.soar_role.name
 }
 
 data "aws_eip" "vpn_static_ip" {
