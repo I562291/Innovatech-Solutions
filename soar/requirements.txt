@@ -1,1 +1,4 @@
 Flask==3.1.2
+boto3==1.40.49 # hiermee kan de soar server communiceren met AWS services zoals SSM en ECR
+# we gebruiken boto3 omdat we via de webhook via parameter store niet als parameter kunnenm geven via userdata, is alleen voorde eerste keer.
+requests==2.32.5

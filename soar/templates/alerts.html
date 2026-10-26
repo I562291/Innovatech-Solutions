@@ -1,1 +1,93 @@
-hier komen de alerts te staan
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Innovatech SOAR - Alerts</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        font-family: Arial, sans-serif;
+      }
+
+      body {
+        background: #071a16;
+        color: white;
+        min-height: 100vh;
+      }
+
+      header {
+        background: #0b2922;
+        padding: 22px 8%;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1px solid #164e3b;
+      }
+
+      header h1 {
+        font-size: 24px;
+      }
+
+      nav a {
+        color: #bbf7d0;
+        text-decoration: none;
+      }
+
+      main {
+        padding: 40px 8%;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        background: #0b2922;
+      }
+
+      th,
+      td {
+        padding: 12px 16px;
+        text-align: left;
+        border-bottom: 1px solid #164e3b;
+        word-break: break-word;
+      }
+
+      th {
+        background: #14532d;
+        color: #dcfce7;
+      }
+
+      .empty {
+        color: #86efac;
+        padding: 20px 0;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Innovatech SOAR</h1>
+      <nav><a href="/">Home</a></nav>
+    </header>
+    <main>
+      <table>
+        <tr>
+          <th>Time</th>
+          <th>Alert</th>
+          <th>Actions</th>
+        </tr>
+        {% for a in alerts %}
+        <tr>
+          <td>{{ a.time }}</td>
+          <td>{{ a.data }}</td>
+          <td>{{ a.actions }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+      {% if not alerts %}
+      <p class="empty">No alerts received.</p>
+      {% endif %}
+    </main>
+  </body>
+</html>
