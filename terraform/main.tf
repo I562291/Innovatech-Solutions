@@ -867,6 +867,10 @@ resource "aws_iam_instance_profile" "ec2_instance_profile" {
 }
 
 # Monitoring ----------------------------------------------------------------------------------------------
+resource "aws_s3_bucket" "loki_log_bucket" {
+  bucket = "loki-log-bucket-2026" # unieke naam voor de bucket
+}
+
 resource "aws_autoscaling_group" "monitoring_asg" {
   name                = "monitoring-asg"
   vpc_zone_identifier = [aws_subnet.Monitoring_subnet.id]
