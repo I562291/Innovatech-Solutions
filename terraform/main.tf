@@ -937,7 +937,7 @@ resource "aws_launch_template" "monitoring_ec2" {
       }
   }
       user_data = base64encode(<<-EOF
-                    #!/bin/bash
+                #!/bin/bash
                 dnf update -y
                 dnf install -y docker git awscli
                 systemctl enable docker
