@@ -18,13 +18,11 @@ jobs:
     runs-on: self-hosted
 
     steps:
-      - name: Checkout repository
+      - name: Checkout repository # repo checkout
         uses: actions/checkout@v4
-
-      - name: Check Ansible
-        run: ansible-playbook --version
-
       - name: Run Ansible updates
+        env: 
+          ANSIBLE_BECOME_PASS: ${{ secrets.ANSIBLE_SUDO_PASSWORD }}
         run: |
           set -Eeuo pipefail
           ansible-playbook \

@@ -4,6 +4,9 @@
   serial: 1 # een server tegenlijk updaten, zodat er geen/minder downtime is
   any_errors_fatal: true
   tasks:
+    - name: Wait for connection
+      ansible.builtin.wait_for_connection:
+        timeout: 10
     - name: Update and upgrade packages with APT
       ansible.builtin.apt:
         name: "*" # update all packages
@@ -17,6 +20,9 @@
   serial: 1 # een server tegenlijk updaten, zodat er geen/minder downtime is
   any_errors_fatal: true
   tasks:
+    - name: Wait for connection
+      ansible.builtin.wait_for_connection:
+        timeout: 10
     - name: Update and upgrade packages with DNF
       ansible.builtin.dnf:
         name: "*" # update all packages

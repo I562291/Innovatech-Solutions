@@ -1,7 +1,0 @@
-[onpremise]
-192.168.1.10
-
-[aws]
-grafana.innovatech.internal
-soar.innovatech.internal
-vpn.innovatech.internal
