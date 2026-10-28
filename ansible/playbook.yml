@@ -2,7 +2,7 @@
   hosts: onpremise
   become: true # run tasks as root
   serial: 1 # een server tegenlijk updaten, zodat er geen/minder downtime is
-  any_errors_fatal: true
+  any_errors_fatal: false
   tasks:
     - name: Wait for connection
       ansible.builtin.wait_for_connection:
@@ -18,7 +18,7 @@
   hosts: aws
   become: true # run tasks as root
   serial: 1 # een server tegenlijk updaten, zodat er geen/minder downtime is
-  any_errors_fatal: true
+  any_errors_fatal: false
   tasks:
     - name: Wait for connection
       ansible.builtin.wait_for_connection:
