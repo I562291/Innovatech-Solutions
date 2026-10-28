@@ -301,7 +301,7 @@ resource "aws_security_group" "resolver_endpoint_sg" {
     from_port   = 53
     to_port     = 53
     protocol    = "udp"
-    cidr_blocks = ["192.168.1.0/24", "192.168.2.0/24", "192.168.3.0/24"]
+    cidr_blocks = ["192.168.1.0/24", "192.168.2.0/24", "192.168.3.0/24", "10.0.0.0/16"]
   }
 
   ingress {
@@ -309,7 +309,7 @@ resource "aws_security_group" "resolver_endpoint_sg" {
     from_port   = 53
     to_port     = 53
     protocol    = "tcp"
-    cidr_blocks = ["192.168.1.0/24", "192.168.2.0/24", "192.168.3.0/24"]
+    cidr_blocks = ["192.168.1.0/24", "192.168.2.0/24", "192.168.3.0/24", "10.0.0.0/16"] # eigenlijk werkt 192 niet want verkeer gaat van on premise krijgt nieuwe ip door masquarade door vpn.
   }
 
   egress {
@@ -361,13 +361,6 @@ resource "aws_route53_resolver_endpoint" "resolver_inbound_endpoint" {
   }
 }
 
-# resource "aws_route53_record" "soar_record" {
-#   zone_id = aws_route53_zone.internal_dns_zone.id
-#   name    = "soar"
-#   type    = "A" # ipv4
-#   ttl     = 60
-#   records = [aws_instance.soar_server.private_ip]
-# }
 
 resource "aws_route53_record" "mysql_record" {
   zone_id = aws_route53_zone.internal_dns_zone.zone_id
