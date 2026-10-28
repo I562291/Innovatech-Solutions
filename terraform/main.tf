@@ -22,11 +22,41 @@ terraform {
 resource "aws_vpc" "vpc_innovatech_solutions" {
   cidr_block       = "10.0.0.0/16"
   instance_tenancy = "default"
+  enable_dns_hostnames = true
+  enable_dns_support = true
 
   tags = {
     Project = "innovatech_solutions"
     Name    = "vpc_innovatech_solutions"
   }
+}
+
+resource "aws_security_group" "vpc_endpoint_sg" { # bedoelt om de vpn server toegang te geven tot de aws api zonder dat het verkeer over het internet gaat.
+  name   = "vpn-ec2-endpoint-sg"
+  vpc_id = aws_vpc.vpc_innovatech_solutions.id
+
+  ingress {
+    from_port       = 443
+    to_port         = 443
+    protocol        = "tcp"
+    security_groups = [aws_security_group.vpn_sg.id] # dus alleen de vpn server mag via deze security group naar de aws api endpoint
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+resource "aws_vpc_endpoint" "vpc_endpoint" {
+  vpc_id              = aws_vpc.vpc_innovatech_solutions.id
+  service_name        = "com.amazonaws.eu-central-1.ec2"
+  vpc_endpoint_type   = "Interface"
+  subnet_ids          = [aws_subnet.VPN_subnet.id] # we will place the endpoint in the VPN subnet so that the VPN server can use the aws api without going through the internet
+  security_group_ids  = [aws_security_group.vpc_endpoint_sg.id] 
+  private_dns_enabled = true
 }
 
 resource "aws_subnet" "ALB_subnet1" {
@@ -1066,6 +1096,7 @@ resource "aws_autoscaling_group" "vpn_asg" {
   max_size            = 1
   min_size            = 1
   force_delete        = true
+  depends_on = [aws_vpc_endpoint.vpc_endpoint]
 
   health_check_type         = "EC2"
   health_check_grace_period = 420
