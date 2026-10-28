@@ -475,7 +475,7 @@ ingress {
   from_port   = 22
   to_port     = 22
   protocol    = "tcp"
-  cidr_blocks = ["0.0.0.0/0"]
+  cidr_blocks = ["192.168.1.0/24"]
 }
 
   ingress {
@@ -592,6 +592,13 @@ resource "aws_security_group" "soar_sg" {
     to_port     = 8080
     protocol    = "tcp"
     cidr_blocks = ["10.0.3.0/24"]
+  }
+
+    ingress { # ssh for central updates (ansible)
+    from_port = 22
+    to_port = 22
+    protocol = "tcp"
+    cidr_blocks = ["192.168.1.0/24", "10.0.4.0/24"]
   }
 
   egress { # zodat de SOAR server overal naar toe kan gaan voor updates en API calls

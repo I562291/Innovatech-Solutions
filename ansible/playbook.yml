@@ -1,0 +1,20 @@
+- name: Update on-premise hosts
+  hosts: onpremise
+  become: true # run tasks as root
+  tasks:
+    - name: Update and upgrade packages with APT
+      ansible.builtin.apt:
+        name: "*" # update all packages
+        state: latest
+        update_cache: true
+        upgrade: dist
+
+- name: Update AWS hosts
+  hosts: aws
+  become: true # run tasks as root
+  tasks:
+    - name: Update and upgrade packages with DNF
+      ansible.builtin.dnf:
+        name: "*" # update all packages
+        state: latest
+        update_cache: true

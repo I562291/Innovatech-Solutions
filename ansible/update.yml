@@ -1,8 +1,0 @@
-placeholder update.yml
-workstation
-  sudo apt update -y
-  sudo apt upgrade -y
-
-aws-servers
-  sudo dnf update -y
-  sudo dnf upgrade -y
