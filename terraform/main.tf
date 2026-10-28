@@ -1187,7 +1187,7 @@ resource "aws_launch_template" "vpn_ec2" {
                 mkdir -p /etc/systemd/system/wg-quick@wg0.service.d
                 cat <<'RESTART' > /etc/systemd/system/wg-quick@wg0.service.d/restart.conf
                 [Service]
-                Restart=always
+                Restart=on-failure
                 RestartSec=10
                 RESTART
                 systemctl enable --now wg-quick@wg0
