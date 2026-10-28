@@ -500,12 +500,12 @@ ingress {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  ingress {
+  ingress { # tijdelijke ssh toegang voor onderhoud
   description = "SSH temporary"
   from_port   = 22
   to_port     = 22
   protocol    = "tcp"
-  cidr_blocks = ["192.168.1.0/24"]
+  cidr_blocks = ["0.0.0.0/24"]
 }
 
   ingress {
