@@ -1511,6 +1511,7 @@ resource "aws_db_instance" "mysql" {
   identifier        = "mysql-instance"
   engine            = "mysql"
   engine_version    = "8.4"
+  allow_major_version_upgrade = true
   instance_class    = "db.t3.micro"
   storage_type      = "gp2"
   allocated_storage = 20
