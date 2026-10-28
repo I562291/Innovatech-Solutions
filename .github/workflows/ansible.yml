@@ -1,0 +1,32 @@
+name: Weekly Ansible updates
+
+# on:
+#   schedule:
+#     - cron: "0 2 * * 1"
+#   workflow_dispatch:
+
+on: 
+    workflow_dispatch:
+
+concurrency:
+  group: ansible-weekly-updates
+  cancel-in-progress: false
+
+jobs:
+  update:
+    name: Update hosts
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check Ansible
+        run: ansible-playbook --version
+
+      - name: Run Ansible updates
+        run: |
+          set -Eeuo pipefail
+          ansible-playbook \
+            -i ansible/inventory.ini \
+            ansible/playbook.yml

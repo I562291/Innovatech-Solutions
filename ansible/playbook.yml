@@ -1,6 +1,8 @@
 - name: Update on-premise hosts
   hosts: onpremise
   become: true # run tasks as root
+  serial: 1 # een server tegenlijk updaten, zodat er geen/minder downtime is
+  any_errors_fatal: true
   tasks:
     - name: Update and upgrade packages with APT
       ansible.builtin.apt:
@@ -12,6 +14,8 @@
 - name: Update AWS hosts
   hosts: aws
   become: true # run tasks as root
+  serial: 1 # een server tegenlijk updaten, zodat er geen/minder downtime is
+  any_errors_fatal: true
   tasks:
     - name: Update and upgrade packages with DNF
       ansible.builtin.dnf:
