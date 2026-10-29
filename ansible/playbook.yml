@@ -1,7 +1,7 @@
 - name: Update on-premise hosts
   hosts: onpremise
   become: true # run tasks as root
-  serial: 1 # een server tegenlijk updaten, zodat er geen/minder downtime is
+  serial: 1 # een server tegelijk updaten, zodat er geen/minder downtime is
   any_errors_fatal: false
   tasks:
     - name: Wait for connection
@@ -9,15 +9,13 @@
         timeout: 10
     - name: Update and upgrade packages with APT
       ansible.builtin.apt:
-        name: "*" # update all packages
-        state: latest
         update_cache: true
         upgrade: dist
 
 - name: Update AWS hosts
   hosts: aws
   become: true # run tasks as root
-  serial: 1 # een server tegenlijk updaten, zodat er geen/minder downtime is
+  serial: 1 # een server tegelijk updaten, zodat er geen/minder downtime is
   any_errors_fatal: false
   tasks:
     - name: Wait for connection
