@@ -20,11 +20,21 @@ jobs:
     steps:
       - name: Checkout repository # repo checkout
         uses: actions/checkout@v4
-      - name: Run Ansible updates
-        env: 
-          ANSIBLE_BECOME_PASS: ${{ secrets.ANSIBLE_SUDO_PASSWORD }}
+
+      # - name: Run Ansible updates
+      #   env: 
+      #     ANSIBLE_BECOME_PASS: ${{ secrets.ANSIBLE_SUDO_PASSWORD }}
+      #   run: |
+      #     set -Eeuo pipefail
+      #     ansible-playbook \
+      #       -i ansible/inventory.ini \
+      #       ansible/playbook.yml
+      - name: Test Ansible sudo
+        env:
+          ANSIBLE_SUDO_PASSWORD: ${{ secrets.ANSIBLE_SUDO_PASSWORD }}
         run: |
-          set -Eeuo pipefail
-          ansible-playbook \
+          ansible onpremise \
             -i ansible/inventory.ini \
-            ansible/playbook.yml
+            -m ansible.builtin.command \
+            -a "whoami" \
+            --become
