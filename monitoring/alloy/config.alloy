@@ -2,6 +2,7 @@ loki.source.syslog "tcp_syslog" {
   listener {
     address  = "0.0.0.0:514"
     protocol = "tcp"
+    syslog_format = "rfc3164"
   }
 
   forward_to = [loki.write.syslog.receiver]
