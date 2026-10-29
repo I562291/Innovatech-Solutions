@@ -21,18 +21,20 @@ jobs:
       - name: Checkout repository # repo checkout
         uses: actions/checkout@v4
 
-      # - name: Run Ansible updates
-      #   env: 
-      #     ANSIBLE_BECOME_PASS: ${{ secrets.ANSIBLE_SUDO_PASSWORD }}
-      #   run: |
-      #     set -Eeuo pipefail
-      #     ansible-playbook \
-      #       -i ansible/inventory.ini \
-      #       ansible/playbook.yml
-      - name: Test Ansible sudo
+      - name: Run Ansible updates
+        env: 
+          ANSIBLE_BECOME_PASS: ${{ secrets.ANSIBLE_SUDO_PASSWORD }}
         run: |
-          ansible aws \
+          set -Eeuo pipefail
+          ansible-playbook \
             -i ansible/inventory.ini \
-            -m ansible.builtin.command \
-            -a "whoami" \
-            --become
+            ansible/playbook.yml
+      
+      # the lines below are used to test sudo on each machine
+      # - name: Test Ansible sudo
+      #   run: |
+      #     ansible aws \
+      #       -i ansible/inventory.ini \
+      #       -m ansible.builtin.command \
+      #       -a "whoami" \
+      #       --become
