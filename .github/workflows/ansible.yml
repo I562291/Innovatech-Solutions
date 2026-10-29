@@ -30,10 +30,8 @@ jobs:
       #       -i ansible/inventory.ini \
       #       ansible/playbook.yml
       - name: Test Ansible sudo
-        env:
-          ANSIBLE_SUDO_PASSWORD: ${{ secrets.ANSIBLE_SUDO_PASSWORD }}
         run: |
-          ansible onpremise \
+          ansible aws \
             -i ansible/inventory.ini \
             -m ansible.builtin.command \
             -a "whoami" \
