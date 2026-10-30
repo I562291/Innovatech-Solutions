@@ -729,7 +729,8 @@ resource "aws_launch_template" "template_ec2" {
   user_data = base64encode(<<-EOF
               #!/bin/bash
               dnf update -y
-              dnf install -y docker awscli
+              dnf install -y docker awscli rsyslog
+              systemctl enable rsyslog --now
               systemctl enable docker
               systemctl start docker
 
@@ -779,7 +780,13 @@ resource "aws_launch_template" "template_ec2" {
 
               systemctl daemon-reload
               systemctl enable --now node_exporter
+
+              cat >> /etc/rsyslog.conf <<'RESOLV'
+              *.* @@grafana.innovatech.internal:514
+              RESOLV
+              systemctl restart rsyslog
               EOF
+              
   )
   
 tag_specifications {
@@ -1148,7 +1155,8 @@ resource "aws_launch_template" "vpn_ec2" {
                 done
                 # 1. install wireguard-tools
                 dnf update -y
-                dnf install wireguard-tools iptables awscli -y 
+                dnf install wireguard-tools iptables awscli rsyslog -y 
+                systemctl enable rsyslog --now
 
                 WIREGUARD_PRIVATE_KEY=$(aws ssm get-parameter \
                   --name /innovatech/wireguard/private-key \
@@ -1232,6 +1240,12 @@ resource "aws_launch_template" "vpn_ec2" {
 
                 systemctl daemon-reload
                 systemctl enable --now node_exporter
+
+
+                cat >> /etc/rsyslog.conf <<'RESOLV'
+                *.* @@grafana.innovatech.internal:514
+                RESOLV
+                systemctl restart rsyslog
                 EOF
   )
 
@@ -1289,7 +1303,8 @@ resource "aws_launch_template" "soar_ec2" {
     set -e
 
     dnf update -y
-    dnf install -y docker awscli curl
+    dnf install -y docker awscli curl rsyslog
+    systemctl enable rsyslog --now
     systemctl enable --now docker
 
     AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
@@ -1363,6 +1378,11 @@ resource "aws_launch_template" "soar_ec2" {
 
     systemctl daemon-reload
     systemctl enable --now soar.service
+
+    cat >> /etc/rsyslog.conf <<'RESOLV'
+    *.* @@grafana.innovatech.internal:514
+    RESOLV
+    systemctl restart rsyslog
     EOF
   )
 
