@@ -814,9 +814,21 @@ resource "aws_autoscaling_group" "webserver_asg" {
   health_check_type         = "ELB"
   health_check_grace_period = 420
 
+  instance_refresh {
+    strategy = "Rolling"
+
+    triggers = ["launch_template"]
+
+    preferences {
+      min_healthy_percentage = 50
+      instance_warmup        = 420
+      auto_rollback            = true
+  }
+}
+
   launch_template { # hier vertellen we de autoscaler welke launch template hij moet gebruiken
     id      = aws_launch_template.template_ec2.id
-    version = "$Latest"
+    version = aws_launch_template.template_ec2.latest_version
   }
 }
 
@@ -1098,12 +1110,24 @@ resource "aws_autoscaling_group" "vpn_asg" {
   force_delete        = true
   depends_on = [aws_vpc_endpoint.vpc_endpoint]
 
+  instance_refresh {
+    strategy = "Rolling"
+
+    triggers = ["launch_template"]
+
+    preferences {
+      min_healthy_percentage = 0
+      instance_warmup        = 420
+      auto_rollback            = true
+  }
+}
+
   health_check_type         = "EC2"
   health_check_grace_period = 420
 
   launch_template {
     id      = aws_launch_template.vpn_ec2.id
-    version = "$Latest"
+    version = aws_launch_template.vpn_ec2.latest_version
   }
 }
 
@@ -1268,12 +1292,24 @@ resource "aws_autoscaling_group" "soar_asg" {
   min_size            = 1
   force_delete        = true
 
+  instance_refresh {
+    strategy = "Rolling"
+
+    triggers = ["launch_template"]
+
+    preferences {
+      min_healthy_percentage = 0
+      instance_warmup        = 420
+      auto_rollback            = true
+  }
+}
+
   health_check_type         = "EC2"
   health_check_grace_period = 420
 
   launch_template {
     id      = aws_launch_template.soar_ec2.id
-    version = "$Latest"
+    version = aws_launch_template.soar_ec2.latest_version
   }
 }
 
