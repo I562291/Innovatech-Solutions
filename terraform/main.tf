@@ -817,8 +817,6 @@ resource "aws_autoscaling_group" "webserver_asg" {
   instance_refresh {
     strategy = "Rolling"
 
-    triggers = ["launch_template"]
-
     preferences {
       min_healthy_percentage = 50
       instance_warmup        = 420
@@ -930,8 +928,6 @@ resource "aws_autoscaling_group" "monitoring_asg" {
 
     instance_refresh {
     strategy = "Rolling"
-
-    triggers = ["launch_template"]
 
     preferences {
       min_healthy_percentage = 0
@@ -1125,8 +1121,6 @@ resource "aws_autoscaling_group" "vpn_asg" {
   instance_refresh {
     strategy = "Rolling"
 
-    triggers = ["launch_template"]
-
     preferences {
       min_healthy_percentage = 0
       instance_warmup        = 420
@@ -1306,8 +1300,6 @@ resource "aws_autoscaling_group" "soar_asg" {
 
   instance_refresh {
     strategy = "Rolling"
-
-    triggers = ["launch_template"]
 
     preferences {
       min_healthy_percentage = 0
