@@ -928,12 +928,24 @@ resource "aws_autoscaling_group" "monitoring_asg" {
   min_size            = 1
   force_delete        = true # kijkt niet of er eerst running instances zijn, maar verwijdert ze direct
 
+    instance_refresh {
+    strategy = "Rolling"
+
+    triggers = ["launch_template"]
+
+    preferences {
+      min_healthy_percentage = 0
+      instance_warmup        = 420
+      auto_rollback          = true
+  }
+}
+
   health_check_type         = "EC2"
   health_check_grace_period = 420
 
   launch_template { # hier vertellen we de autoscaler welke launch template hij moet gebruiken
     id      = aws_launch_template.monitoring_ec2.id
-    version = "$Latest"
+    version = aws_launch_template.monitoring_ec2.latest_version
   }
 }
 
