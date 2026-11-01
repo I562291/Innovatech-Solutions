@@ -42,6 +42,13 @@ resource "aws_security_group" "vpc_endpoint_sg" { # bedoelt om de vpn server toe
     security_groups = [aws_security_group.vpn_sg.id] # dus alleen de vpn server mag via deze security group naar de aws api endpoint
   }
 
+  ingress {
+    from_port       = 443
+    to_port         = 443
+    protocol        = "tcp"
+    security_groups = [aws_security_group.monitoring_sg.id] # dus alleen de monitoring servers mogen via deze security group naar de aws api endpoint
+  }
+
   egress {
     from_port   = 0
     to_port     = 0
