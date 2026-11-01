@@ -1,11 +1,32 @@
-loki.source.syslog "tcp_syslog" {
-  listener {
-    address  = "0.0.0.0:514"
-    protocol = "tcp"
-    syslog_format = "rfc3164"
+loki.relabel "syslog_labels" {
+  forward_to = []
+
+  rule {
+    source_labels = ["__syslog_message_hostname"]
+    target_label  = "host"
   }
 
-  forward_to = [loki.write.syslog.receiver]
+  rule {
+    source_labels = ["__syslog_message_app_name"]
+    target_label  = "app"
+  }
+
+  rule {
+    source_labels = ["__syslog_message_severity"]
+    target_label  = "severity"
+  }
+}
+
+loki.source.syslog "tcp_syslog" {
+  listener {
+    address      = "0.0.0.0:514"
+    protocol     = "tcp"
+    syslog_format = "rfc3164"
+    labels       = { job = "syslog" }
+  }
+
+  relabel_rules = loki.relabel.syslog_labels.rules
+  forward_to    = [loki.write.syslog.receiver]
 }
 
 loki.write "syslog" {

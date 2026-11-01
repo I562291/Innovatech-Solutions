@@ -852,10 +852,6 @@ resource "aws_autoscaling_policy" "scaling_policy" {
   }
 }
 
-// Source - https://stackoverflow.com/a/57780806
-// Posted by Dipendra Dangal
-// Retrieved 20-09-2026
-
 resource "aws_iam_role" "iam_role" {
   name = "test-role"
 
