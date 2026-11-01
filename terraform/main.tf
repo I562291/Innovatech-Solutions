@@ -1346,7 +1346,7 @@ resource "aws_launch_template" "soar_ec2" {
     set -e
 
     dnf update -y
-    dnf install -y docker awscli curl rsyslog
+    dnf install -y docker awscli rsyslog
     systemctl enable rsyslog --now
     systemctl enable --now docker
 
