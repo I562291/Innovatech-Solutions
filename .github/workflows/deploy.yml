@@ -12,36 +12,36 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  terraform:
-    name: Terraform deploy
-    runs-on: self-hosted
+  # terraform:
+  #   name: Terraform deploy
+  #   runs-on: self-hosted
 
-    defaults:
-      run:
-        working-directory: terraform
+  #   defaults:
+  #     run:
+  #       working-directory: terraform
 
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+  #   steps:
+  #     - name: Checkout repository
+  #       uses: actions/checkout@v4
 
-      - name: Terraform init
-        run: terraform init
+  #     - name: Terraform init
+  #       run: terraform init
 
-      - name: Terraform validate
-        run: terraform validate
+  #     - name: Terraform validate
+  #       run: terraform validate
 
-      - name: Terraform plan
-        run: terraform plan
+  #     - name: Terraform plan
+  #       run: terraform plan
 
-      - name: Terraform apply
-        run: terraform apply -auto-approve
+  #     - name: Terraform apply
+  #       run: terraform apply -auto-approve
 
-  test:
+  test-and-push:
     name: Application smoke test
-    needs: terraform
     runs-on: self-hosted
 
     steps:
+      # testing stage --------------------------------------------------------------------------------
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -52,35 +52,32 @@ jobs:
         run: docker run -d --name innovatech-test -p 8080:80 innovatech-test:latest
 
       - name: Test home page
-        run: curl --fail --retry 30 --retry-delay 1 --retry-connrefused http://localhost:8080/
+        # run: curl --fail --retry 30 --retry-delay 1 --retry-connrefused http://localhost:8080/
+        run: exit 1
 
-      - name: Remove test container
+      - name: delete test container if test passed or failed # we always want to delete the container, also if the test failed, to clean up the environment
         if: always()
-        run: docker rm -f innovatech-test
+        run: docker rm -f innovatech-test || true # hiermee verwijderen we alleen de container als die bestaat, zo voorkomen we een error
 
-  docker:
-    name: Push and deploy application
-    needs: test
-    runs-on: self-hosted
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
+      # deployment stage ----------------------------------------------------------------------------
       - name: Login to ECR
         run: |
           aws ecr get-login-password --region eu-central-1 \
           | docker login --username AWS --password-stdin 050670385147.dkr.ecr.eu-central-1.amazonaws.com
 
-      - name: Build application image
-        run: docker build -t container_registry:latest .
-
       - name: Tag application image
-        run: docker tag container_registry:latest 050670385147.dkr.ecr.eu-central-1.amazonaws.com/container_registry:latest
+        run: docker tag innovatech-test:latest 050670385147.dkr.ecr.eu-central-1.amazonaws.com/container_registry:latest
 
-      - name: Push application image
+      - name: Push application image # Image still has the whole repo code copied into it, even after removing the test container
         run: docker push 050670385147.dkr.ecr.eu-central-1.amazonaws.com/container_registry:latest
 
+  instance-refresh:
+    name: Refresh webserver instances
+    runs-on: self-hosted
+    # needs: [terraform, test-and-push]
+    needs: test-and-push
+
+    steps:
       - name: Refresh webserver instances
         run: |
           aws autoscaling start-instance-refresh \
