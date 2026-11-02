@@ -12,29 +12,29 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # terraform:
-  #   name: Terraform deploy
-  #   runs-on: self-hosted
+  terraform:
+    name: Terraform deploy
+    runs-on: self-hosted
 
-  #   defaults:
-  #     run:
-  #       working-directory: terraform
+    defaults:
+      run:
+        working-directory: terraform
 
-  #   steps:
-  #     - name: Checkout repository
-  #       uses: actions/checkout@v4
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-  #     - name: Terraform init
-  #       run: terraform init
+      - name: Terraform init
+        run: terraform init
 
-  #     - name: Terraform validate
-  #       run: terraform validate
+      - name: Terraform validate
+        run: terraform validate
 
-  #     - name: Terraform plan
-  #       run: terraform plan
+      - name: Terraform plan
+        run: terraform plan
 
-  #     - name: Terraform apply
-  #       run: terraform apply -auto-approve
+      - name: Terraform apply
+        run: terraform apply -auto-approve
 
   test-and-push:
     name: Application smoke test
@@ -52,8 +52,7 @@ jobs:
         run: docker run -d --name innovatech-test -p 8080:80 innovatech-test:latest
 
       - name: Test home page
-        # run: curl --fail --retry 30 --retry-delay 1 --retry-connrefused http://localhost:8080/
-        run: exit 1
+        run: curl --fail --retry 30 --retry-delay 1 --retry-connrefused http://localhost:8080/
 
       - name: delete test container if test passed or failed # we always want to delete the container, also if the test failed, to clean up the environment
         if: always()
@@ -74,8 +73,7 @@ jobs:
   instance-refresh:
     name: Refresh webserver instances
     runs-on: self-hosted
-    # needs: [terraform, test-and-push]
-    needs: test-and-push
+    needs: [terraform, test-and-push]
 
     steps:
       - name: Refresh webserver instances
