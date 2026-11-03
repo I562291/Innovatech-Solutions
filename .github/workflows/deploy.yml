@@ -96,7 +96,7 @@ jobs:
   instance-refresh:
     name: Refresh webserver and SOAR instances
     runs-on: self-hosted
-    needs: [terraform, test-and-push, soar-test-and-push]
+    needs: [terraform, test-and-push, soar-push]
 
     steps:
       - name: Refresh webserver instances
