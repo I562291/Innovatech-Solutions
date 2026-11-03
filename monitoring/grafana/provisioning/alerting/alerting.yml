@@ -150,7 +150,7 @@ groups:
       # 4. SSH Bruteforce Alert
       - uid: alert-ssh-bruteforce
         title: Possible Bruteforce
-        condition: B
+        condition: C
         for: 0m
         data:
           - refId: A
@@ -168,13 +168,21 @@ groups:
           - refId: B
             datasourceUid: __expr__
             model:
-              type: threshold
+              type: reduce
               expression: A
+              reducer: last
+              refId: B
+
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: B
               conditions:
                 - evaluator:
                     params: [3]
                     type: gte
-              refId: B
+              refId: C
 
         labels:
           severity: critical
