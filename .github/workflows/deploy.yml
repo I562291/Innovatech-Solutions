@@ -37,7 +37,7 @@ jobs:
         run: terraform apply -auto-approve
 
   test-and-push:
-    name: Application smoke test
+    name: Build, test and push application image
     runs-on: self-hosted
 
     steps:
@@ -70,9 +70,10 @@ jobs:
       - name: Push application image # Image still has the whole repo code copied into it, even after removing the test container
         run: docker push 050670385147.dkr.ecr.eu-central-1.amazonaws.com/container_registry:latest
 
-  soar-test-and-push:
+  soar-push:
     name: Build and push SOAR image
     runs-on: self-hosted
+    needs: terraform # only for the first time, because the soar registry does not exist yet
 
     steps:
       - name: Checkout repository
