@@ -30,10 +30,12 @@ def event_listener():
     return render_template("alerts.html", alerts=alerts_list)
 
 def rule_engine(data):
-    if "possible bruteforce" in data.get("title", "").lower():
+    if (
+        "possible bruteforce" in data.get("title", "").lower()
+        and data.get("status") == "firing"
+    ):
         return ["discord", "block_ip"]
-    else:
-        return []
+    return []
     
 def executor(actions, data):
     if "discord" in actions:
