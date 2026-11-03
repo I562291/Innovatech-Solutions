@@ -70,16 +70,49 @@ jobs:
       - name: Push application image # Image still has the whole repo code copied into it, even after removing the test container
         run: docker push 050670385147.dkr.ecr.eu-central-1.amazonaws.com/container_registry:latest
 
-  instance-refresh:
-    name: Refresh webserver instances
+  soar-test-and-push:
+    name: Build and push SOAR image
     runs-on: self-hosted
-    needs: [terraform, test-and-push]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Login to ECR
+        run: |
+          aws ecr get-login-password --region eu-central-1 \
+          | docker login --username AWS --password-stdin 050670385147.dkr.ecr.eu-central-1.amazonaws.com
+
+      - name: Build SOAR image
+        run: docker build -t soar:latest soar
+
+      - name: Tag SOAR image
+        run: docker tag soar:latest 050670385147.dkr.ecr.eu-central-1.amazonaws.com/soar_container_registry:latest
+
+      - name: Push SOAR image
+        run: docker push 050670385147.dkr.ecr.eu-central-1.amazonaws.com/soar_container_registry:latest
+
+  instance-refresh:
+    name: Refresh webserver and SOAR instances
+    runs-on: self-hosted
+    needs: [terraform, test-and-push, soar-test-and-push]
 
     steps:
       - name: Refresh webserver instances
         run: |
           aws autoscaling start-instance-refresh \
             --auto-scaling-group-name webserver-asg \
+            --strategy Rolling \
+            --preferences '{
+              "MinHealthyPercentage": 50,
+              "InstanceWarmup": 60,
+              "SkipMatching": false
+            }'
+
+      - name: Refresh SOAR instances
+        run: |
+          aws autoscaling start-instance-refresh \
+            --auto-scaling-group-name soar-asg \
             --strategy Rolling \
             --preferences '{
               "MinHealthyPercentage": 50,
