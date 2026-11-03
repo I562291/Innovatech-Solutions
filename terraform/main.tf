@@ -1489,6 +1489,11 @@ resource "aws_iam_policy" "soar_policy" {
         Effect   = "Allow"
         Action   = ["ssm:GetParameter"]
         Resource = "arn:aws:ssm:eu-central-1:${data.aws_caller_identity.current.account_id}:parameter/innovatech/discord/webhook" # hiermee kan de soar server de discord webhook ophalen uit de parameter store
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["ssm:GetParameter"]
+        Resource = "arn:aws:ssm:eu-central-1:${data.aws_caller_identity.current.account_id}:parameter/innovatech/pfsense/api-key" # hiermee kan de soar server de pfsense api key ophalen uit de parameter store
       }
     ]
   })
