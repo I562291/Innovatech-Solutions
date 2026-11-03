@@ -45,7 +45,7 @@ def send_discord(data):
         Name="/innovatech/discord/webhook",
         WithDecryption=True
     )
-    webhook_url = parameter["Parameter"]["Value"]
+    webhook_url = parameter["Parameter"]["Value"].strip() # strip to remove any whitespace in the webhook URL (without it the request failed)
 
     response = requests.post(
         webhook_url,
