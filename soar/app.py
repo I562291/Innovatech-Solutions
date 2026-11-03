@@ -16,6 +16,7 @@ def event_listener():
     if request.method == "POST":
         data = request.get_json()
         actions = rule_engine(data)
+        print(f"SOAR DEBUG: title={data.get('title')}, actions={actions}, alerts={data.get('alerts')}", flush=True)
         executor(actions, data)
 
         alerts_list.append({
