@@ -9,11 +9,23 @@ contactPoints:
         settings:
           url: $DISCORD_WEBHOOK_URL
         disableResolveMessage: false
+  - orgId: 1  
+    name: soar-webhook
+    receivers:
+      - uid: soar-receiver
+        type: webhook
+        settings:
+          url: http://soar.innovatech.internal:8080/alerts
+          httpMethod: POST  
 
 policies:
   - orgId: 1
     receiver: discord-alerts
     group_by: ['alertname']
+    routes:
+      - receiver: soar-webhook
+        object_matchers:
+          - ['soar', '=', 'true']
 
 groups:
   - orgId: 1
@@ -134,3 +146,39 @@ groups:
         annotations:
           summary: "Netwerkinterface down op {{ $labels.instance }}"
           description: "Een fysieke netwerkinterface op deze webserver is niet beschikbaar."
+
+      # 4. SSH Bruteforce Alert
+      - uid: alert-ssh-bruteforce
+        title: Possible Bruteforce
+        condition: B
+        for: 0m
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 120 # binnen 2 minuten
+              to: 0
+            datasourceUid: loki
+            model:
+              editorMode: code
+              expr: 'sum by (ip) (count_over_time({host="student-ubuntu-desktop-VM",app="sshd"} |= "Failed password" | pattern "<_> from <ip> port <_>" [2m]))' # IP-adressen van mislukte SSH-logins binnen 2 minuten
+              instant: true
+              range: false
+              refId: A
+
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    params: [3]
+                    type: gte
+              refId: B
+
+        labels:
+          severity: critical
+          soar: "true" # hiermee zorgen we ervoor dat deze alert naar de SOAR-webhook wordt gestuurd voor verdere verwerking.
+        annotations:
+          summary: "Possible Bruteforce from {{ $labels.ip }}"
+          description: "3 or more failed SSH-logins in 2 minuten."

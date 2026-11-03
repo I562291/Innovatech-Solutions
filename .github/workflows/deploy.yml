@@ -73,7 +73,7 @@ jobs:
   soar-push:
     name: Build and push SOAR image
     runs-on: self-hosted
-    needs: terraform # only for the first time, because the soar registry does not exist yet
+    # needs: terraform # only for the first time, because the soar registry does not exist yet
 
     steps:
       - name: Checkout repository
