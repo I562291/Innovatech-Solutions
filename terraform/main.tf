@@ -1233,6 +1233,17 @@ resource "aws_launch_template" "vpn_ec2" {
                 RESTART
                 systemctl enable --now wg-quick@wg0
 
+                aws ec2 replace-route \
+                  --route-table-id ${aws_route_table.private_route.id} \
+                  --destination-cidr-block 192.168.1.0/24 \
+                  --instance-id "$INSTANCE_ID" \
+                  --region eu-central-1 \
+                || aws ec2 create-route \
+                  --route-table-id ${aws_route_table.private_route.id} \
+                  --destination-cidr-block 192.168.1.0/24 \
+                  --instance-id "$INSTANCE_ID" \
+                  --region eu-central-1
+
                 TOKEN=$(curl -sS -X PUT http://169.254.169.254/latest/api/token \
                   -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
                 PRIVATE_IP=$(curl -sS \
@@ -1557,7 +1568,9 @@ resource "aws_iam_policy" "vpn_ssm_policy" {
       Action = [ # bedoelt om de vpn server een elastic ip te geven zodat hij altijd hetzelfde ip heeft
         "ec2:AssociateAddress",
         "ec2:ModifyInstanceAttribute",
-        "ec2:DescribeInstances"
+        "ec2:DescribeInstances",
+        "ec2:CreateRoute",
+        "ec2:ReplaceRoute"
       ]
       Resource = "*"
     }]
