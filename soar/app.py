@@ -49,7 +49,7 @@ def send_discord(data):
 
     response = requests.post(
         webhook_url,
-        json={"content": f"Possible brute-force alert:\n{json.dumps(data)}"},
+        json={"content": f"Possible brute-force alert:\n{data.get('title', 'Unknown alert')}"},
         timeout=10
     )
     response.raise_for_status()
