@@ -11,6 +11,10 @@ app = Flask(__name__)
 syslog.openlog(ident="soar", facility=syslog.LOG_LOCAL0)
 alerts_list = []
 
+@app.route("/")
+def index():
+    return render_template("index.html")
+
 @app.route("/alerts", methods=["GET", "POST"])
 def event_listener():
     if request.method == "POST":
