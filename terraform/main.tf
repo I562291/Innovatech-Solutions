@@ -238,6 +238,10 @@ resource "aws_route_table" "private_route" {
     nat_gateway_id = aws_nat_gateway.NAT.id
   }
 
+  lifecycle {
+  ignore_changes = [route]
+}
+
   tags = {
     Project = "innovatech_solutions"
     Name    = "private_route"
