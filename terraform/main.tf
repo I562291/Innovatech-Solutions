@@ -597,7 +597,7 @@ resource "aws_security_group" "monitoring_sg" {
     from_port = 514
     to_port = 514
     protocol = "tcp"
-    cidr_blocks = ["192.168.1.0/24", "10.0.4.0/24", "10.0.5.0/24", "10.0.6.0/24"] # logs from webservers, vpn server and on premise environment
+    cidr_blocks = ["192.168.1.0/24", "10.0.3.0/24", "10.0.4.0/24", "10.0.5.0/24", "10.0.6.0/24"] # logs from webservers, vpn server and on premise environment
   }
 
   egress { # monitoring -> Internet (VIA NAT GATEWAY)
@@ -1440,7 +1440,7 @@ resource "aws_launch_template" "soar_ec2" {
 
     [Service]
     Type=simple
-    ExecStart=/usr/bin/docker run --name soar --rm --init -p 8080:8080 --restart=no "$ECR_REGISTRY/soar_container_registry:latest"
+    ExecStart=/usr/bin/docker run --name soar --rm --init -v /dev/log:/dev/log -p 8080:8080 --restart=no "$ECR_REGISTRY/soar_container_registry:latest"
     ExecStop=/usr/bin/docker stop soar
     Restart=always
     RestartSec=10

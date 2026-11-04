@@ -4,11 +4,11 @@ import boto3
 import json
 import requests
 import ipaddress
-
+import syslog
 
 app = Flask(__name__)
 
-
+syslog.openlog(ident="soar", facility=syslog.LOG_LOCAL0)
 alerts_list = []
 
 @app.route("/alerts", methods=["GET", "POST"])
@@ -41,14 +41,18 @@ def executor(actions, data):
     if "discord" in actions:
         try:
             send_discord(data)
+            syslog.syslog(syslog.LOG_INFO, "SUCCESS: Discord alert sent successfully")
         except Exception as e:
             print(f"Error sending Discord message: {e}")
+            syslog.syslog(syslog.LOG_ERR, f"FAILED: Discord alert failed: {e}")
             
     if "block_ip" in actions:
         try:
             block_ip(data)
+            syslog.syslog(syslog.LOG_INFO, "SUCCESS: IP blocked successfully")
         except Exception as e:
             print(f"Error blocking IP: {e}")
+            syslog.syslog(syslog.LOG_ERR, f"FAILED: IP blocking failed: {e}")
 
 def send_discord(data):
     ssm = boto3.client("ssm", region_name="eu-central-1")
