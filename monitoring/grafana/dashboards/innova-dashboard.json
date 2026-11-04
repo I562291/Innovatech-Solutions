@@ -188,6 +188,57 @@
         "enableLogDetails": true,
         "sortOrder": "Descending"
       }
+    },
+    {
+      "id": 8,
+      "title": "SOAR Succesvolle Acties (24u)",
+      "type": "stat",
+      "gridPos": { "h": 5, "w": 12, "x": 0, "y": 32 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        {
+          "expr": "sum(count_over_time({job=\"syslog\"} |= \"SUCCESS:\" [24h]))",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "0",
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 9,
+      "title": "SOAR Mislukte Acties (24u)",
+      "type": "stat",
+      "gridPos": { "h": 5, "w": 12, "x": 12, "y": 32 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        {
+          "expr": "sum(count_over_time({job=\"syslog\"} |= \"FAILED:\" [24h]))",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "0",
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          }
+        }
+      }
     }
   ],
   "refresh": "15s",
