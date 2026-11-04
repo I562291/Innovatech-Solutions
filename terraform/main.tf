@@ -1089,7 +1089,7 @@ resource "aws_iam_role" "prometheus_role" {
 
 resource "aws_iam_policy" "prometheus_policy" {
   name        = "prometheus-policy"
-  description = "Allows Prometheus EC2 service discovery to read EC2 tags and instances"
+  description = "Allows Prometheus EC2 service discovery and Loki S3 access"
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -1115,6 +1115,19 @@ resource "aws_iam_policy" "prometheus_policy" {
           "route53:ChangeResourceRecordSets"
         ]
         Resource = aws_route53_zone.internal_dns_zone.arn
+      },
+      { # zodat Loki toegang hebben tot de S3 bucket voor log opslag
+        Effect = "Allow"
+        Action = [
+          "s3:ListBucket",
+          "s3:PutObject",
+          "s3:GetObject",
+          "s3:DeleteObject"
+        ]
+        Resource = [
+          aws_s3_bucket.loki_log_bucket.arn,
+          "${aws_s3_bucket.loki_log_bucket.arn}/*"
+        ]
       }
     ]
   })
