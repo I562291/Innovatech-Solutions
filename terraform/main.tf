@@ -522,6 +522,14 @@ ingress {
     cidr_blocks = ["10.0.3.0/24"]
   }
 
+  ingress { # zodat de soar server via de vpn server naar de pfSense kan om API calls te doen
+    description = "SOAR to pfSense API"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["10.0.3.0/24"]
+  }  
+
   egress { # VPN -> Database
     from_port   = 3306
     to_port     = 3306
