@@ -21,6 +21,12 @@ jobs:
       - name: Checkout repository # repo checkout
         uses: actions/checkout@v4
 
+      - name: Update SSH known_hosts
+        run: |
+          ssh-keygen -R soar.innovatech.internal || true
+          ssh-keygen -R grafana.innovatech.internal || true
+          ssh-keygen -R vpn.innovatech.internal || true
+
       - name: Run Ansible updates
         env: 
           ANSIBLE_SUDO_PASSWORD: ${{ secrets.ANSIBLE_SUDO_PASSWORD }}
