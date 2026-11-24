@@ -183,6 +183,28 @@ resource "aws_subnet" "internal_DNS_subnet2" {
   }
 }
 
+resource "aws_subnet" "application_subnet1" {
+  vpc_id            = aws_vpc.vpc_innovatech_solutions.id
+  cidr_block        = "10.0.11.0/24"
+  availability_zone = "eu-central-1a"
+
+  tags = {
+    Project = "innovatech_solutions"
+    Name    = "application_subnet1"
+  }
+}
+
+resource "aws_subnet" "application_subnet2" {
+  vpc_id            = aws_vpc.vpc_innovatech_solutions.id
+  cidr_block        = "10.0.12.0/24"
+  availability_zone = "eu-central-1b"
+
+  tags = {
+    Project = "innovatech_solutions"
+    Name    = "application_subnet2"
+  }
+}
+
 # Routing
 resource "aws_internet_gateway" "IGW" {
   vpc_id = aws_vpc.vpc_innovatech_solutions.id
@@ -307,6 +329,15 @@ resource "aws_route_table_association" "internal_DNS_subnet2_association" {
   route_table_id = aws_route_table.isolated_route.id
 }
 
+resource "aws_route_table_association" "application_subnet1_association" {
+  subnet_id      = aws_subnet.application_subnet1.id
+  route_table_id = aws_route_table.private_route.id
+}
+
+resource "aws_route_table_association" "application_subnet2_association" {
+  subnet_id      = aws_subnet.application_subnet2.id
+  route_table_id = aws_route_table.private_route.id
+}
 
 # Internal DNS -------------------------------------------------------------------------------------------
 resource "aws_security_group" "resolver_endpoint_sg" {
@@ -487,6 +518,14 @@ resource "aws_security_group" "database_sg" {
     protocol    = "tcp"
     cidr_blocks = ["10.0.4.0/24"]
   }
+
+  ingress { # application -> database
+    from_port   = 3306
+    to_port     = 3306
+    protocol    = "tcp"
+    security_groups = [aws_security_group.application_sg.id]
+  }
+
   egress { # outbound traffic van database mag overal naar toe gaan
     from_port   = 0
     to_port     = 0
@@ -658,8 +697,81 @@ resource "aws_security_group" "soar_sg" {
   }
 }
 
+resource "aws_security_group" "application_sg"{ # security group for the central HR application
+  vpc_id = aws_vpc.vpc_innovatech_solutions.id
+
+  ingress { # for hr application (loadbalancer --> application)
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    security_groups = [aws_security_group.hr_alb_SG.id]
+  }
+
+  ingress { # for hr application (loadbalancer --> application)
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    security_groups = [aws_security_group.hr_alb_SG.id]
+  }
+
+  ingress { # prometheus
+    from_port  = 9090
+    to_port    = 9090
+    protocol   = "tcp"
+    security_groups = [aws_security_group.monitoring_sg.id]
+  }
+
+  ingress { # node exporter prometheus
+    from_port   = 9100
+    to_port     = 9100
+    protocol    = "tcp"
+    cidr_blocks = ["10.0.3.0/24"]
+  }
+
+  egress { # rsyslog to grafana
+    from_port   = 514
+    to_port     = 514
+    protocol    = "tcp"
+    cidr_blocks = ["10.0.3.0/24"]
+  }
+
+  egress { # internet access via NAT gateway for updates and git access
+    description = "Internet access for Git and updates"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress { # application -> database
+    from_port = 3306
+    to_port = 3306
+    protocol = "tcp"
+    cidr_blocks = ["10.0.7.0/24", "10.0.8.0/24"]
+  }
+
+}
+
+resource "aws_security_group" "hr_alb_SG"{
+  vpc_id = aws_vpc.vpc_innovatech_solutions.id
+
+  ingress { # for hr application
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["10.0.0.0/24", "10.0.4.0/24", "192.168.1.0/24", "10.10.4.2/32", "192.168.3.0/24"]
+  }
+
+  ingress { # for hr application
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["10.0.0.0/24", "10.0.4.0/24", "192.168.1.0/24", "10.10.4.2/32", "192.168.3.0/24"]
+  }
+}
+
 # Services
-# ALB ------------------------------------------------------------------------------------------------
+# ALB webserver ------------------------------------------------------------------------------------------------
 resource "aws_lb" "ALB" {
   name               = "ALB"
   internal           = false
@@ -711,7 +823,64 @@ resource "aws_lb_listener" "alb_listener" {
 
   tags = {
     Project = "innovatech_solutions"
-    name = "alb_listener"
+    Name    = "alb_listener"
+  }
+
+}
+
+# ALB hr application ------------------------------------------------------------------------------------------------
+resource "aws_lb" "hr_ALB" {
+  name               = "ALB"
+  internal           = true
+  load_balancer_type = "application"
+
+  security_groups    = [aws_security_group.hr_ALB_SG.id]
+  subnets = [
+    aws_subnet.application_subnet1.id,
+    aws_subnet.application_subnet2.id
+  ]
+
+  tags = {
+    Project = "innovatech_solutions"
+    Name    = "hr_ALB"
+  }
+}
+
+resource "aws_lb_target_group" "hr_alb_tg" {
+  name        = "hr-alb-tg"
+  target_type = "instance"
+  port        = 443
+  protocol    = "HTTPS"
+  vpc_id      = aws_vpc.vpc_innovatech_solutions.id
+
+health_check {
+    path                = "/"
+    healthy_threshold   = 2
+    unhealthy_threshold = 2
+    timeout             = 5
+    interval            = 30
+    matcher             = "200"
+  }
+  
+  tags = {
+    Project = "innovatech_solutions"
+    Name    = "hr_alb_tg"
+  }
+}
+
+resource "aws_lb_listener" "hr_alb_listener" {
+  load_balancer_arn = aws_lb.hr_ALB.arn
+  port              = "443"
+  protocol          = "HTTPS"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.hr_alb_tg.arn
+  }
+
+  tags = {
+    Project = "innovatech_solutions"
+    Name    = "hr_alb_listener"
   }
 
 }
@@ -1172,6 +1341,32 @@ resource "aws_autoscaling_group" "vpn_asg" {
   }
 }
 
+resource "aws_launch_template" "application_ec2" {
+  name_prefix   = "application_ec2-"
+  image_id      = data.aws_ssm_parameter.ec2_ami.value
+  instance_type = "t3.micro"
+  key_name      = aws_key_pair.vpn_key.key_name
+  update_default_version = true
+
+  iam_instance_profile {
+    arn = aws_iam_instance_profile.vpn_ssm_instance_profile.arn
+  }
+
+  network_interfaces {
+    associate_public_ip_address = false
+    security_groups             = [aws_security_group.application_SG.id]
+    delete_on_termination       = true
+  }
+
+  block_device_mappings {
+    device_name = "/dev/xvda"
+    ebs {
+      volume_size = 20
+      volume_type = "gp2"
+    }
+  }
+}
+
 resource "aws_launch_template" "vpn_ec2" {
   name_prefix   = "vpn_ec2-"
   image_id      = data.aws_ssm_parameter.ec2_ami.value
@@ -1610,6 +1805,193 @@ resource "aws_iam_role_policy_attachment" "vpn_ssm_policy_attachment" {
 resource "aws_iam_instance_profile" "vpn_ssm_instance_profile" {
   name = "vpn-ssm-instance-profile"
   role = aws_iam_role.vpn_ssm_role.name
+}
+
+# control plane asg --------------------------------------------------------------------------------------------
+resource "aws_autoscaling_group" "control_plane_asg" {
+  name                = "control-plane-asg"
+  vpc_zone_identifier = [aws_subnet.application_subnet.id]
+  desired_capacity    = 1
+  max_size            = 2
+  min_size            = 1
+  force_delete        = true
+
+  instance_refresh {
+    strategy = "Rolling"
+
+    preferences {
+      min_healthy_percentage = 50
+      instance_warmup        = 420
+      auto_rollback            = true
+  }
+}
+
+  health_check_type         = "EC2"
+  health_check_grace_period = 420
+
+  launch_template {
+    id      = aws_launch_template.control_plane_ec2.id
+    version = aws_launch_template.control_plane_ec2.latest_version
+  }
+}
+
+resource "aws_launch_template" "control_plane_ec2" {
+  name_prefix   = "control_plane_ec2-"
+  image_id      = data.aws_ssm_parameter.ec2_ami.value
+  instance_type = "t3.micro"
+  key_name      = aws_key_pair.vpn_key.key_name
+  update_default_version = true 
+
+  iam_instance_profile {
+    arn = aws_iam_instance_profile.control_plane_instance_profile.arn
+  }
+
+  vpc_security_group_ids = [aws_security_group.application_sg.id]
+
+  block_device_mappings {
+    device_name = "/dev/xvda"
+    ebs {
+      volume_size = 20
+      volume_type = "gp2"
+    }
+  }
+}
+
+# application asg ----------------------------------------------------------------------------------------------
+resource "aws_autoscaling_group" "node_workers_asg" {
+  name                = "node-workers-asg"
+  vpc_zone_identifier = [aws_subnet.application_subnet.id]
+  desired_capacity    = 2
+  max_size            = 3
+  min_size            = 2
+  force_delete        = true
+
+  instance_refresh {
+    strategy = "Rolling"
+
+    preferences {
+      min_healthy_percentage = 100
+      instance_warmup        = 420
+      auto_rollback            = true
+  }
+}
+
+  health_check_type         = "EC2"
+  health_check_grace_period = 420
+
+  launch_template {
+    id      = aws_launch_template.node_workers_ec2.id
+    version = aws_launch_template.node_workers_ec2.latest_version
+  }
+}
+
+resource "aws_launch_template" "node_workers_ec2" {
+  name_prefix   = "node_workers_ec2-"
+  image_id      = data.aws_ssm_parameter.ec2_ami.value
+  instance_type = "t3.micro"
+  key_name      = aws_key_pair.vpn_key.key_name
+  update_default_version = true 
+
+  iam_instance_profile { # deze is bedoelt voor de nodeworkers om de aws api te kunnen gebruiken voor cognito
+    arn = aws_iam_instance_profile.node_workers_instance_profile.arn
+  }
+
+  vpc_security_group_ids = [aws_security_group.application_sg.id]
+
+  block_device_mappings {
+    device_name = "/dev/xvda"
+    ebs {
+      volume_size = 20
+      volume_type = "gp2"
+    }
+  }
+}
+
+resource "aws_iam_role" "node_workers_role" {
+  name = "node-workers-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          Service = "ec2.amazonaws.com"
+        }
+        Action = "sts:AssumeRole"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_policy" "node_workers_policy" {
+  name = "node-workers-policy"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["cognito-idp:AdminCreateUser",
+                    "cognito-idp:AdminDeleteUser",
+                    "cognito-idp:AdminAddUserToGroup",
+                    "cognito-idp:AdminRemoveUserFromGroup",
+                    "cognito-idp:AdminListGroupsForUser"
+
+
+        ]
+        "Resource": "*"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "node_workers_policy_attachment" {
+  role       = aws_iam_role.node_workers_role.name
+  policy_arn = aws_iam_policy.node_workers_policy.arn
+}
+
+resource "aws_iam_instance_profile" "node_workers_instance_profile" {
+  name = "node-workers-instance-profile"
+  role = aws_iam_role.node_workers_role.name
+}
+
+resource "aws_cognito_user_pool" "cognito_user_pool" {
+  name = "innovatech-user-pool"
+  deletion_protection = "INACTIVE" # Ensures 'terraform destroy' cleanly wipes all users
+
+  admin_create_user_config {
+    allow_admin_create_user_only = true
+  }
+
+  password_policy { # default password policy for security reasons
+    minimum_length    = 8
+    require_lowercase = true
+    require_numbers   = true
+    require_symbols   = true
+    require_uppercase = true
+  }
+
+}
+
+resource "aws_cognito_user_group" "admin_group" {
+  name         = "admin"
+  user_pool_id = aws_cognito_user_pool.cognito_user_pool.id
+}
+
+resource "aws_cognito_user_group" "hr_group" {
+  name         = "hr"
+  user_pool_id = aws_cognito_user_pool.cognito_user_pool.id
+}
+
+resource "aws_cognito_user_group" "finance_group" {
+  name         = "finance"
+  user_pool_id = aws_cognito_user_pool.cognito_user_pool.id
+}
+
+resource "aws_cognito_user_pool_client" "cognito_user_pool_client" { # we put the client in teh user pool so that the node workers can use it to authenticate users and manage them
+  name         = "cognito-user-pool-client"
+  user_pool_id = aws_cognito_user_pool.cognito_user_pool.id
 }
 
 # mysql database ----------------------------------------------------------------------------------------------
