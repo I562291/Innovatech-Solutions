@@ -721,6 +721,13 @@ resource "aws_security_group" "application_sg"{ # security group for the central
     cidr_blocks = ["10.0.3.0/24"]
   }
 
+  ingress { # ssh for central updates (ansible)
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["192.168.1.0/24", "10.0.4.0/24"]
+  }
+
   egress { # rsyslog to grafana
     from_port   = 514
     to_port     = 514
@@ -777,22 +784,15 @@ resource "aws_security_group" "hr_alb_SG"{
   vpc_id = aws_vpc.vpc_innovatech_solutions.id
 
   ingress { # for hr application
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["10.0.0.0/24", "10.0.4.0/24", "192.168.1.0/24", "10.10.4.2/32", "192.168.3.0/24"]
+  }
+
+  egress {
     from_port   = 80
     to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["10.0.0.0/24", "10.0.4.0/24", "192.168.1.0/24", "10.10.4.2/32", "192.168.3.0/24"]
-  }
-
-  ingress { # for hr application
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
-    cidr_blocks = ["10.0.0.0/24", "10.0.4.0/24", "192.168.1.0/24", "10.10.4.2/32", "192.168.3.0/24"]
-  }
-
-  egress { # so that the hr application can access the application
-    from_port   = 443
-    to_port     = 443
     protocol    = "tcp"
     cidr_blocks = ["10.0.11.0/24", "10.0.12.0/24"]
   }
@@ -841,8 +841,11 @@ health_check {
 
 resource "aws_lb_listener" "alb_listener" {
   load_balancer_arn = aws_lb.ALB.arn
-  port              = "80"
-  protocol          = "HTTP"
+  port              = "443"
+  protocol          = "HTTPS"
+  ssl_policy        = "ELBSecurityPolicy-TLS13-1-2-2021-06"
+  certificate_arn   = aws_acm_certificate.acm_cert.arn
+
 
   default_action {
     type             = "forward"
@@ -856,9 +859,27 @@ resource "aws_lb_listener" "alb_listener" {
 
 }
 
+# https ssl certificate for the ALB's
+resource "tls_private_key" "TLS_private_key" {
+  algorithm = "RSA" # signature algorithm for the private key
+}
+
+resource "tls_self_signed_cert" "self_signed_cert" {
+  private_key_pem       = tls_private_key.TLS_private_key.private_key_pem
+  validity_period_hours = 8760 # 1 year
+  dns_names             = ["*.elb.amazonaws.com", "hr.innovatech.internal"] # every dns name with the domain name elb.amazonaws.com and hr.innovatech.internal will be using this certificate
+  allowed_uses          = ["server_auth"] # this checks if the certificate is valid for server authentication
+  subject { common_name = "innovatech" }
+}
+
+resource "aws_acm_certificate" "acm_cert" { # acm = amazon certificate manager
+  private_key      = tls_private_key.TLS_private_key.private_key_pem
+  certificate_body = tls_self_signed_cert.self_signed_cert.cert_pem
+}
+
 # ALB hr application ------------------------------------------------------------------------------------------------
 resource "aws_lb" "hr_ALB" {
-  name               = "hr_ALB"
+  name               = "hr-ALB"
   internal           = true
   load_balancer_type = "application"
 
@@ -874,11 +895,11 @@ resource "aws_lb" "hr_ALB" {
   }
 }
 
-resource "aws_lb_target_group" "hr_alb_tg" {
+resource "aws_lb_target_group" "hr_alb_tg" { # eerst komt het verkeer via de loadbalancer van poort 443, en dan wordt poort 80 gebruikt om het verkeer door te sturen naar mijn HR system
   name        = "hr-alb-tg"
   target_type = "instance"
-  port        = 443
-  protocol    = "HTTPS"
+  port        = 80
+  protocol    = "HTTP"
   vpc_id      = aws_vpc.vpc_innovatech_solutions.id
 
 health_check {
@@ -900,7 +921,8 @@ resource "aws_lb_listener" "hr_alb_listener" {
   load_balancer_arn = aws_lb.hr_ALB.arn
   port              = "443"
   protocol          = "HTTPS"
-
+  ssl_policy        = "ELBSecurityPolicy-TLS13-1-2-2021-06"
+  certificate_arn   = aws_acm_certificate.acm_cert.arn
   default_action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.hr_alb_tg.arn
@@ -911,6 +933,14 @@ resource "aws_lb_listener" "hr_alb_listener" {
     Name    = "hr_alb_listener"
   }
 
+}
+
+resource "aws_route53_record" "hr_application_record" {
+  zone_id = aws_route53_zone.internal_dns_zone.zone_id
+  name    = "hr"
+  type    = "CNAME"
+  ttl     = 60 # na 60 seconden wordt de DNS naam vernieuwd
+  records = [aws_lb.hr_ALB.dns_name]
 }
 
 # --------------------------------------------------------------------------------------------------------
@@ -1838,7 +1868,7 @@ resource "aws_iam_instance_profile" "vpn_ssm_instance_profile" {
 # control plane asg --------------------------------------------------------------------------------------------
 resource "aws_autoscaling_group" "control_plane_asg" {
   name                = "control-plane-asg"
-  vpc_zone_identifier = [aws_subnet.application_subnet.id]
+  vpc_zone_identifier = [aws_subnet.application_subnet1.id, aws_subnet.application_subnet2.id]
   desired_capacity    = 1
   max_size            = 2
   min_size            = 1
@@ -1870,10 +1900,6 @@ resource "aws_launch_template" "control_plane_ec2" {
   key_name      = aws_key_pair.vpn_key.key_name
   update_default_version = true 
 
-  iam_instance_profile {
-    arn = aws_iam_instance_profile.control_plane_instance_profile.arn
-  }
-
   vpc_security_group_ids = [aws_security_group.application_sg.id]
 
   block_device_mappings {
@@ -1888,11 +1914,12 @@ resource "aws_launch_template" "control_plane_ec2" {
 # application asg ----------------------------------------------------------------------------------------------
 resource "aws_autoscaling_group" "node_workers_asg" {
   name                = "node-workers-asg"
-  vpc_zone_identifier = [aws_subnet.application_subnet.id]
+  vpc_zone_identifier = [aws_subnet.application_subnet1.id, aws_subnet.application_subnet2.id]
   desired_capacity    = 2
   max_size            = 3
   min_size            = 2
   force_delete        = true
+  target_group_arns   = [aws_lb_target_group.hr_alb_tg.arn]
 
   instance_refresh {
     strategy = "Rolling"
@@ -1903,6 +1930,7 @@ resource "aws_autoscaling_group" "node_workers_asg" {
       auto_rollback            = true
   }
 }
+
 
   health_check_type         = "EC2"
   health_check_grace_period = 420
