@@ -636,7 +636,7 @@ resource "aws_security_group" "monitoring_sg" {
     from_port = 514
     to_port = 514
     protocol = "tcp"
-    cidr_blocks = ["192.168.1.0/24", "10.0.3.0/24", "10.0.4.0/24", "10.0.5.0/24", "10.0.6.0/24"] # logs from webservers, vpn server and on premise environment
+    cidr_blocks = ["192.168.1.0/24", "10.0.3.0/24", "10.0.4.0/24", "10.0.5.0/24", "10.0.6.0/24", "10.0.11.0/24", "10.0.12.0/24"] # logs from webservers, vpn server and on premise environment
   }
 
   egress { # monitoring -> Internet (VIA NAT GATEWAY)
@@ -714,13 +714,6 @@ resource "aws_security_group" "application_sg"{ # security group for the central
     security_groups = [aws_security_group.hr_alb_SG.id]
   }
 
-  ingress { # prometheus
-    from_port  = 9090
-    to_port    = 9090
-    protocol   = "tcp"
-    security_groups = [aws_security_group.monitoring_sg.id]
-  }
-
   ingress { # node exporter prometheus
     from_port   = 9100
     to_port     = 9100
@@ -743,12 +736,40 @@ resource "aws_security_group" "application_sg"{ # security group for the central
     cidr_blocks = ["0.0.0.0/0"]
   }
 
+  ingress { # the control plane can communicate with the workers on port 6443
+    from_port = 6443
+    to_port = 6443
+    protocol = "tcp"
+    self = true
+  }
+
+  ingress { # so that the control plane can communicate with the workers via agents using port 10250
+    from_port = 10250
+    to_port = 10250
+    protocol = "tcp"
+    self = true
+  }
+
   egress { # application -> database
     from_port = 3306
     to_port = 3306
     protocol = "tcp"
     cidr_blocks = ["10.0.7.0/24", "10.0.8.0/24"]
   }
+
+  egress { # the workers can communicate with the control plane on port 6443
+    from_port = 6443
+    to_port   = 6443
+    protocol  = "tcp"
+    self      = true
+}
+
+egress {
+  from_port = 10250
+  to_port   = 10250
+  protocol  = "tcp"
+  self      = true
+}
 
 }
 
@@ -767,6 +788,13 @@ resource "aws_security_group" "hr_alb_SG"{
     to_port     = 443
     protocol    = "tcp"
     cidr_blocks = ["10.0.0.0/24", "10.0.4.0/24", "192.168.1.0/24", "10.10.4.2/32", "192.168.3.0/24"]
+  }
+
+  egress { # so that the hr application can access the application
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["10.0.11.0/24", "10.0.12.0/24"]
   }
 }
 
@@ -830,11 +858,11 @@ resource "aws_lb_listener" "alb_listener" {
 
 # ALB hr application ------------------------------------------------------------------------------------------------
 resource "aws_lb" "hr_ALB" {
-  name               = "ALB"
+  name               = "hr_ALB"
   internal           = true
   load_balancer_type = "application"
 
-  security_groups    = [aws_security_group.hr_ALB_SG.id]
+  security_groups    = [aws_security_group.hr_alb_SG.id]
   subnets = [
     aws_subnet.application_subnet1.id,
     aws_subnet.application_subnet2.id
@@ -1354,7 +1382,7 @@ resource "aws_launch_template" "application_ec2" {
 
   network_interfaces {
     associate_public_ip_address = false
-    security_groups             = [aws_security_group.application_SG.id]
+    security_groups             = [aws_security_group.application_sg.id]
     delete_on_termination       = true
   }
 
