@@ -2002,10 +2002,7 @@ resource "aws_iam_policy" "node_workers_policy" {
           "ssm:GetParameter"
         ],
         "Effect": "Allow",
-        "Resource": "arn:aws:ssm:eu-central-1:${data.aws_caller_identity.current.account_id}:parameter/innovatech/db/password",
-        "Resource": "arn:aws:ssm:eu-central-1:${data.aws_caller_identity.current.account_id}:parameter/innovatech/db/user",
-        "Resource": "arn:aws:ssm:eu-central-1:${data.aws_caller_identity.current.account_id}:parameter/innovatech/db/host",
-        "Resource": "arn:aws:ssm:eu-central-1:${data.aws_caller_identity.current.account_id}:parameter/innovatech/db/name"
+        "Resource": "arn:aws:ssm:eu-central-1:${data.aws_caller_identity.current.account_id}:parameter/innovatech/db/*" # alle parameters met /innovatech/db/ als pad wordt toegestaan om te zien en gebruiken (db cred)
       }
     ]
   })

@@ -4,3 +4,4 @@ __pycache__/
 *.py[cod]
 /hr application/.venv/
 /hr application/__pycache__/
+/.github/workflows/device_enrollment.yml
