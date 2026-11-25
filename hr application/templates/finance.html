@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Finance | Innovatech Solutions</title>
+    <style>
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        background: linear-gradient(135deg, #0b3828, #071b14);
+        color: white;
+        font-family: Arial, sans-serif;
+      }
+      header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px 5%;
+        background: #0a2b20;
+        border-bottom: 1px solid #047857;
+      }
+      h1 {
+        margin: 0;
+        font-size: 1.3rem;
+        color: #6ee7b7;
+      }
+      header a {
+        padding: 10px 14px;
+        border-radius: 5px;
+        background: #059669;
+        color: white;
+        text-decoration: none;
+      }
+      main {
+        flex: 1;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+      }
+      table {
+        width: min(90vw, 600px);
+        border-collapse: collapse;
+        background: #0c2b21;
+      }
+      caption {
+        padding: 12px;
+        color: #6ee7b7;
+        font-size: 1.2rem;
+      }
+      th,
+      td {
+        padding: 12px;
+        border-bottom: 1px solid #14532d;
+        text-align: left;
+      }
+      th {
+        color: #a7f3d0;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Finance</h1>
+      <a href="{{ url_for('index') }}">Home</a>
+    </header>
+    <main>
+      <table>
+        <caption>
+          Salaries
+        </caption>
+        <thead>
+          <tr>
+            <th>Employee</th>
+            <th>Department</th>
+            <th>Salary</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Alex Morgan</td>
+            <td>HR</td>
+            <td>€4,200</td>
+          </tr>
+          <tr>
+            <td>Jamie Lee</td>
+            <td>IT</td>
+            <td>€5,100</td>
+          </tr>
+          <tr>
+            <td>Taylor Smith</td>
+            <td>Finance</td>
+            <td>€4,800</td>
+          </tr>
+        </tbody>
+      </table>
+    </main>
+  </body>
+</html>

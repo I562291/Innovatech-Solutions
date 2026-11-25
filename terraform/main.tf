@@ -1992,6 +1992,7 @@ resource "aws_iam_policy" "node_workers_policy" {
                     "cognito-idp:AdminDeleteUser",
                     "cognito-idp:AdminAddUserToGroup",
                     "cognito-idp:AdminRemoveUserFromGroup",
+                    "cognito-idp:AdminUpdateUserAttributes", # dit is bedoelt om de node workers de mogelijkheid te geven om gebruikers te beheren in de cognito user pool als dat nodig is
                     "cognito-idp:AdminListGroupsForUser"
 
 
@@ -2045,7 +2046,38 @@ resource "aws_cognito_user_group" "finance_group" {
   user_pool_id = aws_cognito_user_pool.cognito_user_pool.id
 }
 
-resource "aws_cognito_user_pool_client" "cognito_user_pool_client" { # we put the client in teh user pool so that the node workers can use it to authenticate users and manage them
+data "aws_ssm_parameter" "cognito_password" { # wachtwoord ophalen van onze parameter store voor de bestaande gebruikers
+  name            = "/innovatech/cognito/password"
+  with_decryption = true # Zorgt ervoor dat het wachtwoord ontsleuteld wordt
+}
+
+resource "aws_cognito_user" "admin_user" {
+  user_pool_id   = aws_cognito_user_pool.cognito_user_pool.id
+  username       = "admin1"
+  password = data.aws_ssm_parameter.cognito_password.value
+  message_action = "SUPPRESS" # geen email notificatie sturen bij het aanmaken van de gebruiker
+}
+
+resource "aws_cognito_user" "hr_user" {
+  user_pool_id   = aws_cognito_user_pool.cognito_user_pool.id
+  username       = "hr1"
+  password = data.aws_ssm_parameter.cognito_password.value
+  message_action = "SUPPRESS"
+}
+
+resource "aws_cognito_user_in_group" "admin_user_in_group" { # we stoppen admin user in de admin group
+  user_pool_id = aws_cognito_user_pool.cognito_user_pool.id
+  username     = aws_cognito_user.admin_user.username
+  group_name   = aws_cognito_user_group.admin_group.name
+}
+
+resource "aws_cognito_user_in_group" "hr_user_in_group" { # we stoppen hr user in de hr group
+  user_pool_id = aws_cognito_user_pool.cognito_user_pool.id
+  username     = aws_cognito_user.hr_user.username
+  group_name   = aws_cognito_user_group.hr_group.name
+}
+
+resource "aws_cognito_user_pool_client" "cognito_user_pool_client" { # hiermee kunnen we een client aanmaken voor de user pool zodat we een app kunnen koppelen aan de user pool
   name         = "cognito-user-pool-client"
   user_pool_id = aws_cognito_user_pool.cognito_user_pool.id
 }

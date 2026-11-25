@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Admin | Innovatech Solutions</title>
+    <style>
+      body { --accent: #ef4444; margin: 0; min-height: 100vh; display: flex; flex-direction: column; background: linear-gradient(135deg, #3b1115, #170b10); color: white; font-family: Arial, sans-serif; }
+      header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; padding: 12px 5%; background: #301116; border-bottom: 1px solid #7f1d1d; }
+      h1 { margin: 0; font-size: 1.3rem; color: #fca5a5; }
+      nav { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+      button, nav a { padding: 10px 14px; border: 0; border-radius: 5px; background: var(--accent); color: white; font: inherit; text-decoration: none; cursor: pointer; }
+      main { flex: 1; display: grid; place-items: center; padding: 24px; }
+      table { width: min(90vw, 600px); border-collapse: collapse; background: #251116; }
+      caption { padding: 12px; color: #fca5a5; font-size: 1.2rem; }
+      th, td { padding: 12px; border-bottom: 1px solid #61202a; text-align: left; }
+      th { color: #fecaca; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Admin</h1>
+      <nav>
+        <a href="{{ url_for('index') }}">Home</a>
+        <button type="button">Onboard</button>
+        <button type="button">Offboard</button>
+      </nav>
+    </header>
+    <main>
+      <table>
+        <caption>Employees</caption>
+        <thead><tr><th>Name</th><th>Department</th></tr></thead>
+        <tbody><tr><td colspan="2">No employees to display.</td></tr></tbody>
+      </table>
+    </main>
+  </body>
+</html>
