@@ -1994,10 +1994,18 @@ resource "aws_iam_policy" "node_workers_policy" {
                     "cognito-idp:AdminRemoveUserFromGroup",
                     "cognito-idp:AdminUpdateUserAttributes", # dit is bedoelt om de node workers de mogelijkheid te geven om gebruikers te beheren in de cognito user pool als dat nodig is
                     "cognito-idp:AdminListGroupsForUser"
-
-
         ]
         "Resource": "*"
+      },
+      {
+        "Action": [
+          "ssm:GetParameter"
+        ],
+        "Effect": "Allow",
+        "Resource": "arn:aws:ssm:eu-central-1:${data.aws_caller_identity.current.account_id}:parameter/innovatech/db/password",
+        "Resource": "arn:aws:ssm:eu-central-1:${data.aws_caller_identity.current.account_id}:parameter/innovatech/db/user",
+        "Resource": "arn:aws:ssm:eu-central-1:${data.aws_caller_identity.current.account_id}:parameter/innovatech/db/host",
+        "Resource": "arn:aws:ssm:eu-central-1:${data.aws_caller_identity.current.account_id}:parameter/innovatech/db/name"
       }
     ]
   })
