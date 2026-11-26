@@ -3,7 +3,6 @@ import db_connection, json, urllib.request
 import boto3
 import git
 
-#nu moet je nog de git trigger van de workflow maken
 git_token = boto3.client('ssm', region_name='eu-central-1').get_parameter(Name='/innovatech/github/token', WithDecryption=True)['Parameter']['Value']
 
 client = boto3.client('cognito-idp', region_name='eu-central-1') # we gaan hier gebruik maken van boto3 om een cognito account aan te maken en te koppelen aan de juiste groep/verwijderen bij offboarding.
@@ -42,7 +41,7 @@ def onboard():
         if not name or not role or not ip_address:
             abort(400, description="Name, role and IP address are required.") # if any of the fields are missing, stop the process.
 
-        client.admin_create_user(UserPoolId=USER_POOL_ID, Username=name)
+        client.admin_create_user(UserPoolId=USER_POOL_ID, Username=name) # hier maken we een nieuwe gebruiker aan in cognito
         client.admin_add_user_to_group(UserPoolId=USER_POOL_ID, Username=name, GroupName=role) # hiermee voegen we de gebruiker toe aan de juiste groep in Cognito op basis van hun rol.
 
         try:
@@ -50,6 +49,8 @@ def onboard():
             return redirect(url_for("hr")) # after successful onboarding, redirect to HR page. this prevents form resubmission on page refresh.
         except Exception as e:
             abort(500, description=f"Error onboarding employee: {str(e)}")  
+        def trigger_github_workflow(ip_address):
+            url = 
         
     return render_template("onboard.html")
 
