@@ -1,7 +1,7 @@
 from flask import Flask, abort, redirect, render_template, request, url_for
 import db_connection, json, urllib.request
 import boto3
-import git
+import ipaddress
 
 git_token = boto3.client('ssm', region_name='eu-central-1').get_parameter(Name='/innovatech/github/token', WithDecryption=True)['Parameter']['Value']
 
@@ -10,6 +10,14 @@ def get_user_pool_id(): # we halen het vanafnu op via de parameter store ssm
     ssm_client = boto3.client('ssm', region_name='eu-central-1')
     response = ssm_client.get_parameter(Name='/innovatech/cognito/pool_id')
     return response['Parameter']['Value'] # hiermee krijgen we het userpool id van de parameter store
+
+def trigger_github_workflow(ip_address): # github api for triggering the workflow
+    url = "https://api.github.com/repos/I562291/Innovatech-Solutions/actions/workflows/device_enrollment.yml/dispatches"
+    data = json.dumps({"ref": "main", "inputs": {"ip": ip_address}}).encode()
+    request = urllib.request.Request(url, data=data, method="POST", headers={
+        "Authorization": f"Bearer {git_token}", # login using the token
+    })
+    urllib.request.urlopen(request) # we sturen een POST request naar de GitHub API om de workflow te triggeren met het opgegeven IP-adres als input.
 
 USER_POOL_ID = get_user_pool_id() # we slaan het userpool id op in een variabele zodat we het later kunnen gebruiken bij het aanmaken van een gebruiker en het toevoegen aan de juiste groep. 
 
@@ -40,17 +48,17 @@ def onboard():
         ip_address = request.form.get("ip", "").strip()
         if not name or not role or not ip_address:
             abort(400, description="Name, role and IP address are required.") # if any of the fields are missing, stop the process.
-
+            
         client.admin_create_user(UserPoolId=USER_POOL_ID, Username=name) # hier maken we een nieuwe gebruiker aan in cognito
         client.admin_add_user_to_group(UserPoolId=USER_POOL_ID, Username=name, GroupName=role) # hiermee voegen we de gebruiker toe aan de juiste groep in Cognito op basis van hun rol.
 
         try:
             db_connection.onboard_employee(name, role, ip_address)
+            trigger_github_workflow(ip_address) # trigger de workflow, voor de return zodat hij niet stopt als de db functie niet werkt.
             return redirect(url_for("hr")) # after successful onboarding, redirect to HR page. this prevents form resubmission on page refresh.
         except Exception as e:
             abort(500, description=f"Error onboarding employee: {str(e)}")  
-        def trigger_github_workflow(ip_address):
-            url = 
+        
         
     return render_template("onboard.html")
 
