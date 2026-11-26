@@ -39,3 +39,12 @@ def offboard_employee(user_name):
     connection.commit()  # opslaan
     cursor.close()
     connection.close()
+
+def list_employees(): # we gaan hier de lijst van alle medewerkers ophalen uit de mysql db
+    connection = get_connection()
+    cursor = connection.cursor()
+    cursor.execute("SELECT name FROM employees")
+    employees = cursor.fetchall() # met deze line halen we alle rijen op uit de query en slaan we deze op in de variable employees
+    cursor.close()
+    connection.close()
+    return employees

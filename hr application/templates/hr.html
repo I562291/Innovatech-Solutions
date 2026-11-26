@@ -91,13 +91,18 @@
         <thead>
           <tr>
             <th>Name</th>
-            <th>Department</th>
           </tr>
         </thead>
         <tbody>
+          {% for employee in employees %}
           <tr>
-            <td colspan="2">No employees to display.</td>
+            <td>{{ employee[0] }}</td>
           </tr>
+          {% else %}
+          <tr>
+            <td>No employees to display.</td>
+          </tr>
+          {% endfor %}
         </tbody>
       </table>
     </main>

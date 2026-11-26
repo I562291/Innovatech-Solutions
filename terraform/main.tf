@@ -1993,7 +1993,8 @@ resource "aws_iam_policy" "node_workers_policy" {
                     "cognito-idp:AdminAddUserToGroup",
                     "cognito-idp:AdminRemoveUserFromGroup",
                     "cognito-idp:AdminUpdateUserAttributes", # dit is bedoelt om de node workers de mogelijkheid te geven om gebruikers te beheren in de cognito user pool als dat nodig is
-                    "cognito-idp:AdminListGroupsForUser"
+                    "cognito-idp:AdminListGroupsForUser",
+                    "cognito-idp:ListUserPools" # so that the node workers can automatically find the userpool id and use it through boto3
         ]
         "Resource": "*"
       },
@@ -2085,6 +2086,12 @@ resource "aws_cognito_user_in_group" "hr_user_in_group" { # we stoppen hr user i
 resource "aws_cognito_user_pool_client" "cognito_user_pool_client" { # hiermee kunnen we een client aanmaken voor de user pool zodat we een app kunnen koppelen aan de user pool
   name         = "cognito-user-pool-client"
   user_pool_id = aws_cognito_user_pool.cognito_user_pool.id
+}
+
+resource "aws_ssm_parameter" "cognito_pool_id" { # 
+  name  = "/innovatech/cognito/pool_id"
+  type  = "String"
+  value = aws_cognito_user_pool.cognito_user_pool.id
 }
 
 # mysql database ----------------------------------------------------------------------------------------------
