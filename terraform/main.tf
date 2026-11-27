@@ -872,7 +872,7 @@ resource "tls_self_signed_cert" "self_signed_cert" {
   subject { common_name = "innovatech" }
 }
 
-resource "aws_acm_certificate" "acm_cert" { # acm = amazon certificate manager
+resource "aws_acm_certificate" "acm_cert" { # acm = amazon certificate manager.
   private_key      = tls_private_key.TLS_private_key.private_key_pem
   certificate_body = tls_self_signed_cert.self_signed_cert.cert_pem
 }
@@ -2088,10 +2088,21 @@ resource "aws_cognito_user_pool_client" "cognito_user_pool_client" { # hiermee k
   user_pool_id = aws_cognito_user_pool.cognito_user_pool.id
 }
 
-resource "aws_ssm_parameter" "cognito_pool_id" { # 
+resource "aws_ssm_parameter" "cognito_client_id" { # hiermee storen we de client id in de parameter store voor het geval dat die verandert
+  name  = "/innovatech/cognito/client_id"
+  type  = "String"
+  value = aws_cognito_user_pool_client.cognito_user_pool_client.id
+}
+
+resource "aws_ssm_parameter" "cognito_pool_id" {
   name  = "/innovatech/cognito/pool_id"
   type  = "String"
   value = aws_cognito_user_pool.cognito_user_pool.id
+}
+
+resource "aws_cognito_user_pool_domain" "cognito_domain" { # domein voor cognito login page
+  domain       = "hr-innovatech"
+  user_pool_id = aws_cognito_user_pool.cognito_user_pool.id
 }
 
 # mysql database ----------------------------------------------------------------------------------------------

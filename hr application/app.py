@@ -1,14 +1,20 @@
-from flask import Flask, abort, redirect, render_template, request, url_for
+from flask import Flask, abort, redirect, render_template, request, url_for, session
 import db_connection, json, urllib.request
 import boto3
-import ipaddress
+from authlib.integrations.flask_client import OAuth
+# import ipaddress: ik gadit gebruiken om te checken of een ip adress daadwekrelijk een ip adress is.
 
 git_token = boto3.client('ssm', region_name='eu-central-1').get_parameter(Name='/innovatech/github/token', WithDecryption=True)['Parameter']['Value']
+client = boto3.client('cognito-idp', region_name='eu-central-1') # hiermee kan ik admin handelingen doen via cognito
+ssm_client = boto3.client('ssm', region_name='eu-central-1') # bedoelt om toegang te krijgen tot ssm parameter store
 
-client = boto3.client('cognito-idp', region_name='eu-central-1') # we gaan hier gebruik maken van boto3 om een cognito account aan te maken en te koppelen aan de juiste groep/verwijderen bij offboarding.
 def get_user_pool_id(): # we halen het vanafnu op via de parameter store ssm
-    ssm_client = boto3.client('ssm', region_name='eu-central-1')
     response = ssm_client.get_parameter(Name='/innovatech/cognito/pool_id')
+    return response['Parameter']['Value'] # hiermee krijgen we het userpool id van de parameter store
+
+
+def get_cognito_client_id(): # voor de client id van application
+    response = ssm_client.get_parameter(Name='/innovatech/cognito/client_id')
     return response['Parameter']['Value'] # hiermee krijgen we het userpool id van de parameter store
 
 def trigger_github_workflow(ip_address): # github api for triggering the workflow
@@ -20,12 +26,26 @@ def trigger_github_workflow(ip_address): # github api for triggering the workflo
     urllib.request.urlopen(request) # we sturen een POST request naar de GitHub API om de workflow te triggeren met het opgegeven IP-adres als input.
 
 USER_POOL_ID = get_user_pool_id() # we slaan het userpool id op in een variabele zodat we het later kunnen gebruiken bij het aanmaken van een gebruiker en het toevoegen aan de juiste groep. 
+CLIENT_ID = get_cognito_client_id()
 
 app = Flask(__name__)
 
 @app.route("/")
 def index():
     return render_template("index.html")
+
+@app.route("/login")
+def login():
+    return redirect(
+        f"https://hr-innovatech.auth.eu-central-1.amazoncognito.com/oauth2/authorize" # dit is url van de cognito login page
+        f"?client_id={CLIENT_ID}" # hier geven we de client id aan cognito (welke app probeert in te loggen)
+        f"&response_type=code"
+        f"&scope=openid"
+        f"&redirect_uri=https://hr.innovatech.internal/callback"
+    )
+
+@app.route("/callback")
+def callback():
 
 @app.route("/admin")
 def admin():
@@ -64,7 +84,6 @@ def onboard():
 
 @app.route("/offboard", methods=["GET", "POST"])
 def offboard():
-    role = db_connection.list_employees(role)
     employees = db_connection.list_employees() # first the list of employees get fetched from the database
     if request.method == "POST":
         name = request.form.get("name", "").strip()
@@ -78,12 +97,9 @@ def offboard():
             client.admin_delete_user(UserPoolId=USER_POOL_ID, Username=name)
         except Exception as e: 
             abort(500, description=f"Error deleting user from Cognito: {str(e)}")
-
-        if role == "admin":
-            return redirect(url_for("admin"))
-        if role == "hr":
-            return redirect(url_for("hr")) # after successful offboarding, redirect to HR page.
-        return render_template("offboard.html", employees=employees)
+        return redirect(url_for("hr")) # after successful offboarding, redirect to HR page.
+        
+    return render_template("offboard.html", employees=employees)
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
