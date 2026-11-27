@@ -64,6 +64,7 @@ def onboard():
 
 @app.route("/offboard", methods=["GET", "POST"])
 def offboard():
+    role = db_connection.list_employees(role)
     employees = db_connection.list_employees() # first the list of employees get fetched from the database
     if request.method == "POST":
         name = request.form.get("name", "").strip()
@@ -78,8 +79,11 @@ def offboard():
         except Exception as e: 
             abort(500, description=f"Error deleting user from Cognito: {str(e)}")
 
-        return redirect(url_for("hr")) # after successful offboarding, redirect to HR page.
-    return render_template("offboard.html", employees=employees)
+        if role == "admin":
+            return redirect(url_for("admin"))
+        if role == "hr":
+            return redirect(url_for("hr")) # after successful offboarding, redirect to HR page.
+        return render_template("offboard.html", employees=employees)
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
