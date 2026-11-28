@@ -2083,9 +2083,32 @@ resource "aws_cognito_user_in_group" "hr_user_in_group" { # we stoppen hr user i
   group_name   = aws_cognito_user_group.hr_group.name
 }
 
-resource "aws_cognito_user_pool_client" "cognito_user_pool_client" { # hiermee kunnen we een client aanmaken voor de user pool zodat we een app kunnen koppelen aan de user pool
+resource "aws_cognito_user_pool_client" "cognito_user_pool_client" { # we koppelen de app aan de userpool
   name         = "cognito-user-pool-client"
   user_pool_id = aws_cognito_user_pool.cognito_user_pool.id
+  allowed_oauth_flows_user_pool_client = true # in order to use oauth
+  allowed_oauth_flows                  = ["code"]
+  allowed_oauth_scopes                 = ["openid"]
+  supported_identity_providers         = ["COGNITO"]
+  generate_secret                     = true # client secret wordt gemaakt (die storen we in ssm parameter store)
+  callback_urls                       = ["https://hr.innovatech.internal/callback"]
+}
+
+resource "aws_ssm_parameter" "cognito_client_secret" { # hiermee storen we de client secret in de parameter store
+  name  = "/innovatech/cognito/client_secret"
+  type  = "SecureString"
+  value = aws_cognito_user_pool_client.cognito_user_pool_client.client_secret
+}
+
+resource "random_password" "flask_session_secret" { # we maken hier een session secret aan
+  length  = 64
+  special = true # dit zorgt ervoor dat er speciale tekens in de password zitten zodat het moeilijker te raden is
+}
+
+resource "aws_ssm_parameter" "flask_session_secret" { # we maken hier een parameter voor de session secret zodat de flask app die kan ophalen
+  name  = "/innovatech/flask/session_secret"
+  type  = "SecureString"
+  value = random_password.flask_session_secret.result
 }
 
 resource "aws_ssm_parameter" "cognito_client_id" { # hiermee storen we de client id in de parameter store voor het geval dat die verandert
